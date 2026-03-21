@@ -1,0 +1,598 @@
+name: Users-dshanklinbv-repos-eidos-agi-ike.md
+target: /Users/dshanklinbv/repos-eidos-agi/ike.md
+target_type: repo
+created_at: '2026-03-21T00:05:59Z'
+steps:
+- name: server-starts-and-lists-tools
+  type: cli
+  config:
+    command: echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node
+      /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js 2>/dev/null | head -c
+      2000
+    expect_exit_code: 0
+    expect_output_contains: tools
+  why: Verifies the MCP server starts, accepts stdin JSON-RPC, and responds with a
+    tools list. If this fails nothing else can pass.
+- name: tools-list-contains-expected-14-tools
+  type: cli
+  config:
+    command: echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node
+      /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js 2>/dev/null | python3
+      -c "import sys,json; d=json.load(sys.stdin); tools=[t['name'] for t in d['result']['tools']];
+      print(len(tools)); print('\n'.join(sorted(tools)))"
+    expect_exit_code: 0
+    expect_output_contains: project_init
+  why: "Counts and names all registered tools. README says 14 but the MCP system reminder\
+    \ shows 19 \u2014 this surfaces the discrepancy and confirms exact tool inventory."
+- name: project-list-no-args
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_list
+    args: {}
+  why: project_list should work with no arguments. Verifies the GUID registry is readable
+    and returns a sensible list (possibly empty on a fresh install).
+- name: project-init-creates-ike-json
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_init
+    args:
+      path: /tmp/ike-test-probe-001
+  why: 'Core GUID workflow: project_init should create .ike/ike.json in the given
+    path and return a stable GUID. Tests directory creation, JSON write, and GUID
+    generation.'
+- name: project-set-registers-existing-project
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_set
+    args:
+      path: /tmp/ike-test-probe-001
+  why: "After project_init, project_set should re-register the same path and return\
+    \ the same GUID. Tests idempotency of the registry and path\u2192GUID lookup."
+- name: project-set-unknown-path-error
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_set
+    args:
+      path: /tmp/ike-nonexistent-path-xyz
+  why: "A path with no .ike/ike.json should return an error \u2014 and that error\
+    \ message should tell the user to call project_init. Tests the error guidance\
+    \ contract from the README."
+- name: task-list-without-project-id-error
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_list
+    args: {}
+  why: Calling task_list with no project_id should fail gracefully. Verifies the server
+    doesn't crash and returns a useful error (not a stack trace).
+- name: task-create-full-payload
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_create
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+      title: 'Probe: verify task creation'
+      description: Created by eidos-test-forge round-1 probe
+      status: To Do
+  why: Creates a real task to verify task_create writes correctly and returns a task
+    object with an ID. The returned ID is needed for task_view, task_edit, task_complete,
+    task_archive probes.
+- name: task-list-returns-created-task
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_list
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+  why: After task_create, task_list must return the new task. Tests read-after-write
+    consistency and that list results include the expected fields.
+- name: task-search-by-keyword
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_search
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+      query: probe
+  why: Searches for the task we just created. Verifies the search index is updated
+    on create and that keyword matching works against title/description.
+- name: milestone-create-basic
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_create
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+      title: Probe Milestone v0.1
+  why: "Milestone create is separate from task create \u2014 tests that the milestone\
+    \ data model is independent and the create\u2192list\u2192view lifecycle works."
+- name: milestone-list-shows-created-milestone
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_list
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+  why: "Read-after-write for milestones. Also checks response shape \u2014 each entry\
+    \ should have at minimum an id, title, and status field."
+- name: document-create-basic
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: document_create
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+      title: Probe Doc
+      content: '# Probe
+
+
+        This document was created by the test forge.'
+  why: Documents are the third entity type. Tests that all three entity types (task
+    / milestone / document) can be created independently without cross-contamination.
+- name: dist-build-is-fresh
+  type: cli
+  config:
+    command: find /Users/dshanklinbv/repos-eidos-agi/ike.md/dist -name '*.js' -newer
+      /Users/dshanklinbv/repos-eidos-agi/ike.md/src/index.ts 2>/dev/null | wc -l
+    expect_exit_code: 0
+    expect_output_contains: '1'
+  why: Checks that dist/ was compiled after the last source change. A stale build
+    is a common source of 'tests pass locally but behavior is wrong' bugs.
+- name: project-info-returns-metadata
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_info
+    args:
+      project_id: __REPLACE_WITH_GUID_FROM_PROJECT_INIT__
+  why: project_info should return project name, path, GUID, and creation date. Validates
+    the metadata layer is populated on init and readable by ID.
+- name: dist-index-js-exists
+  type: cli
+  config:
+    command: ls /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    expect_exit_code: 0
+    expect_output_contains: index.js
+  why: The dist-build-is-fresh failure checked for '1' which is ambiguous. Directly
+    verify the compiled entry point exists.
+- name: task-view-specific-task
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__task_view
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      task_id: __USE_CREATED_TASK_ID__
+  why: "task_view was never exercised \u2014 verifies individual task retrieval by\
+    \ ID returns correct shape."
+- name: task-edit-update-title
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__task_edit
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      task_id: __USE_CREATED_TASK_ID__
+      title: Updated Task Title
+  why: "Verifies task mutation works and persists \u2014 core CRUD gap not yet covered."
+- name: task-create-minimal-payload
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__task_create
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      title: Minimal task
+  why: "Checks that optional fields (description, milestone, assignee, etc.) are truly\
+    \ optional \u2014 validates schema defaults."
+- name: task-complete-marks-done
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__task_complete
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      task_id: __USE_CREATED_TASK_ID__
+  why: "State transition test \u2014 verifies task lifecycle works end-to-end, not\
+    \ just create/read."
+- name: task-archive-removes-from-active-list
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__task_archive
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      task_id: __USE_CREATED_TASK_ID__
+  why: "Verifies archival removes task from default task_list results \u2014 soft-delete\
+    \ semantics."
+- name: milestone-view-specific
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__milestone_view
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      milestone_id: __USE_CREATED_MILESTONE_ID__
+  why: "milestone_view not yet exercised \u2014 verifies individual milestone retrieval."
+- name: milestone-close-lifecycle
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__milestone_close
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      milestone_id: __USE_CREATED_MILESTONE_ID__
+  why: "Tests milestone state transition \u2014 milestone lifecycle is untested beyond\
+    \ create/list."
+- name: document-list-returns-created-doc
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__document_list
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+  why: "document_list not yet called \u2014 verifies the document created in round\
+    \ 1 appears in listing."
+- name: document-update-body
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: mcp__ike__document_update
+    args:
+      project_id: __USE_CREATED_PROJECT_ID__
+      document_id: __USE_CREATED_DOCUMENT_ID__
+      body: '# Updated
+
+
+        This document was updated.'
+  why: "document_update is untested \u2014 verifies document content mutation persists\
+    \ correctly."
+- name: dist-build-freshness-check
+  type: cli
+  config:
+    command: wc -l /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    expect_exit_code: 0
+    expect_output_contains: index.js
+  why: "Previous dist-build-is-fresh FAIL was ambiguous \u2014 verify dist/index.js\
+    \ has real content (non-empty build artifact)"
+- name: document-view-specific
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: document_view
+    args: {}
+  why: "document_view was never tested \u2014 need to verify it works and what args\
+    \ it requires"
+- name: document-search-by-keyword
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: document_search
+    args:
+      query: test
+  why: "document_search tool not yet covered \u2014 verify keyword search works across\
+    \ documents"
+- name: task-view-nonexistent-id
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_view
+    args:
+      task_id: TASK-99999
+  why: "Error handling for invalid task IDs \u2014 should return a clear error, not\
+    \ crash"
+- name: task-search-no-results
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_search
+    args:
+      query: xyzzy_nonexistent_term_12345
+  why: Verify search gracefully returns empty results rather than erroring on no matches
+- name: task-create-with-priority-and-tags
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_create
+    args:
+      title: Priority and tags test task
+      priority: high
+      tags:
+      - testing
+      - automated
+      description: Task created to test optional priority and tags fields
+  why: "task_create was only tested with basic payload and full payload \u2014 verify\
+    \ priority + tags fields are accepted"
+- name: milestone-list-after-close-shows-closed
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_list
+    args:
+      include_closed: true
+  why: "milestone_close passed but milestone_list was only tested without filter \u2014\
+    \ verify closed milestones appear when include_closed is true"
+- name: project-info-invalid-project-id
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_info
+    args:
+      project_id: 00000000-0000-0000-0000-000000000000
+  why: "project_info passed with valid ID \u2014 verify it returns a clear error (not\
+    \ a crash) for an unknown GUID"
+- name: task-view-archived-task-still-accessible
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_view
+    args:
+      project_id: __use_registered__
+      task_id: __use_archived_task_id__
+  why: "Archived tasks should still be viewable by ID \u2014 archive means remove\
+    \ from active list, not delete"
+- name: task-create-with-milestone-association
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_create
+    args:
+      project_id: __use_registered__
+      title: Task linked to milestone
+      milestone: __use_existing_milestone_id__
+  why: "Milestone association is a core workflow \u2014 tasks should be linkable to\
+    \ milestones at creation"
+- name: milestone-create-with-description
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_create
+    args:
+      project_id: __use_registered__
+      title: Milestone with description
+      description: This milestone covers the full release cycle
+  why: Verify optional description field is accepted and stored on milestone create
+- name: milestone-close-already-closed-idempotent
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_close
+    args:
+      project_id: __use_registered__
+      milestone_id: __use_already_closed_milestone_id__
+  why: "Closing an already-closed milestone should either be idempotent or return\
+    \ a clear error \u2014 not crash"
+- name: task-edit-status-to-in-progress
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_edit
+    args:
+      project_id: __use_registered__
+      task_id: __use_existing_task_id__
+      status: In Progress
+  why: "Status transitions beyond complete/archive \u2014 in-progress is a common\
+    \ intermediate state"
+- name: project-set-same-path-twice
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_set
+    args:
+      path: /Users/dshanklinbv/repos-eidos-agi/ike.md
+  why: Re-registering the same path should be idempotent and return the same GUID,
+    not create a duplicate
+- name: task-search-empty-string
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_search
+    args:
+      project_id: __use_registered__
+      query: ''
+  why: "Empty string search \u2014 should return all tasks, a clear error, or gracefully\
+    \ handle rather than crash"
+- name: document-update-nonexistent-id
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: document_update
+    args:
+      project_id: __use_registered__
+      document_id: doc-nonexistent-999
+      body: Updated content
+  why: "Error handling parity \u2014 task_view handles nonexistent IDs gracefully;\
+    \ document_update should too"
+- name: task-create-special-chars-title
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_create
+    args:
+      project_id: __use_registered__
+      title: "Fix: handle <script> & \"quotes\" in task titles \u2014 edge case #42"
+  why: Special characters in titles (HTML, quotes, em-dashes) must survive the round-trip
+    without corruption
+- name: dist-build-is-fresh-recheck
+  type: cli
+  config:
+    command: cd /Users/dshanklinbv/repos-eidos-agi/ike.md && find src -name '*.ts'
+      -newer dist/index.js 2>/dev/null | wc -l
+    expect_exit_code: 0
+    expect_output_contains: '0'
+  why: "Previous round failed this check \u2014 re-verify whether source files are\
+    \ newer than the dist build, which would mean the build is stale"
+- name: milestone-view-nonexistent-id
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_view
+    args:
+      project_id: 00000000-0000-0000-0000-000000000000
+      milestone_id: M-9999
+  why: "milestone_view with bad ID should return a clear error, not a crash \u2014\
+    \ symmetrical with task_view_nonexistent which already passed"
+- name: task-list-filter-by-status
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_list
+    args:
+      project_id: auto-detect
+      status: in-progress
+  why: "task_list likely supports status filtering \u2014 untested; verify it returns\
+    \ only in-progress tasks and doesn't blow up on a valid filter param"
+- name: task-create-invalid-priority
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_create
+    args:
+      project_id: auto-detect
+      title: Bad priority task
+      priority: nuclear
+  why: "invalid enum value for priority \u2014 should reject with validation error,\
+    \ not silently accept or crash"
+- name: project-init-already-initialized
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: project_init
+    args:
+      path: /tmp/ike-test-project
+  why: "calling project_init on an already-initialized project \u2014 should be idempotent\
+    \ (return same GUID) or give a clear 'already exists' error, not corrupt state"
+- name: milestone-close-nonexistent
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: milestone_close
+    args:
+      project_id: 00000000-0000-0000-0000-000000000000
+      milestone_id: M-9999
+  why: "milestone_close on a nonexistent milestone \u2014 should error cleanly, not\
+    \ silently succeed or crash"
+- name: task-edit-no-fields
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_edit
+    args:
+      project_id: auto-detect
+      task_id: TASK-1
+  why: "task_edit with only required fields and no optional update fields \u2014 should\
+    \ either no-op gracefully or return a validation error, not crash"
+- name: document-search-no-results
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: document_search
+    args:
+      project_id: auto-detect
+      query: xyzzy_no_match_guaranteed_9876
+  why: "document_search with zero results \u2014 verify it returns an empty list rather\
+    \ than an error, symmetric with task_search_no_results which passed"
+- name: task-create-missing-title
+  type: mcp
+  config:
+    server_command:
+    - node
+    - /Users/dshanklinbv/repos-eidos-agi/ike.md/dist/index.js
+    tool_name: task_create
+    args:
+      project_id: auto-detect
+  why: "task_create without the required title field \u2014 should return a clear\
+    \ validation error, not a confusing crash or a task with an empty title"

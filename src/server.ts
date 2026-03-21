@@ -17,6 +17,7 @@ import {
 } from "./config.js";
 import {
   listTasks,
+  listAllTasks,
   nextTaskId,
   taskPath,
   findTaskFile,
@@ -25,11 +26,14 @@ import {
   listMilestones,
   nextMilestoneId,
   milestonePath,
+  findMilestoneFile,
   listDocuments,
   nextDocumentId,
   documentPath,
+  findDocumentFile,
   type TaskFrontmatter,
   type TaskStatus,
+  type MilestoneFrontmatter,
   type Priority,
   type DocumentFrontmatter,
 } from "./files.js";
@@ -263,6 +267,42 @@ export function createServer(): Server {
           },
         },
       },
+      {
+        name: "milestone_view",
+        description: "View a milestone in full detail by ID.",
+        inputSchema: {
+          type: "object",
+          required: ["project_id", "milestone_id"],
+          properties: {
+            project_id: { type: "string" },
+            milestone_id: { type: "string", description: "e.g. MS-0001" },
+          },
+        },
+      },
+      {
+        name: "milestone_close",
+        description: "Close a milestone (mark it complete).",
+        inputSchema: {
+          type: "object",
+          required: ["project_id", "milestone_id"],
+          properties: {
+            project_id: { type: "string" },
+            milestone_id: { type: "string" },
+            notes: { type: "string" },
+          },
+        },
+      },
+      {
+        name: "project_info",
+        description: "Show project stats: task counts by status, milestone summary, document count. Call this at session start to orient yourself.",
+        inputSchema: {
+          type: "object",
+          required: ["project_id"],
+          properties: {
+            project_id: { type: "string" },
+          },
+        },
+      },
       // ── Documents ───────────────────────────────────────────────────────────
       {
         name: "document_create",
@@ -433,13 +473,13 @@ export function createServer(): Server {
           const filePath = findTaskFile(projectRoot, a.task_id as string);
           if (!filePath) return text(`Task ${a.task_id} not found.`);
           const task = readMarkdown<TaskFrontmatter>(filePath);
-          const fm = { ...task.frontmatter, status: "Draft" as TaskStatus, updated: today() };
+          const fm = { ...task.frontmatter, updated: today() };
           const content = a.reason
             ? `${task.content}\n\n**Archived:** ${a.reason}`.trim()
             : task.content;
-          const { safePath } = await import("./security.js");
-          const { IKE_DIR, DIRECTORIES } = await import("./config.js");
-          const archivePath = safePath(projectRoot, IKE_DIR, DIRECTORIES.ARCHIVE, path.basename(filePath));
+          const { safePath: sp } = await import("./security.js");
+          const { IKE_DIR: dir, DIRECTORIES: dirs } = await import("./config.js");
+          const archivePath = sp(projectRoot, dir, dirs.ARCHIVE, path.basename(filePath));
           writeMarkdown(archivePath, fm, content);
           fs.unlinkSync(filePath);
           return text(`Archived **${fm.id}** — ${fm.title}`);
@@ -448,7 +488,9 @@ export function createServer(): Server {
         case "task_search": {
           const projectRoot = resolveProject(a.project_id);
           const query = (a.query as string).toLowerCase();
-          const tasks = listTasks(projectRoot, a.include_completed as boolean ?? false);
+          const tasks = (a.include_completed as boolean)
+            ? listAllTasks(projectRoot)
+            : listTasks(projectRoot, false);
           const matches = tasks.filter((t) =>
             t.frontmatter.title.toLowerCase().includes(query) ||
             t.content.toLowerCase().includes(query)
@@ -484,6 +526,61 @@ export function createServer(): Server {
           }).join("\n"));
         }
 
+        case "milestone_view": {
+          const projectRoot = resolveProject(a.project_id);
+          const filePath = findMilestoneFile(projectRoot, a.milestone_id as string);
+          if (!filePath) return text(`Milestone ${a.milestone_id} not found.`);
+          const m = readMarkdown<MilestoneFrontmatter>(filePath);
+          const fm = m.frontmatter;
+          const lines = [
+            `## ${fm.id} — ${fm.title}`,
+            `**Status:** ${fm.status}`,
+            fm.due ? `**Due:** ${fm.due}` : null,
+            `**Created:** ${fm.created}`,
+          ].filter(Boolean);
+          if (m.content) { lines.push(""); lines.push(m.content); }
+          return text(lines.join("\n"));
+        }
+
+        case "milestone_close": {
+          const projectRoot = resolveProject(a.project_id);
+          const filePath = findMilestoneFile(projectRoot, a.milestone_id as string);
+          if (!filePath) return text(`Milestone ${a.milestone_id} not found.`);
+          const m = readMarkdown<MilestoneFrontmatter>(filePath);
+          const fm = { ...m.frontmatter, status: "closed" as const };
+          const content = a.notes
+            ? `${m.content}\n\n**Closed:** ${a.notes}`.trim()
+            : m.content;
+          writeMarkdown(filePath, fm, content);
+          return text(`Closed milestone **${fm.id}** — ${fm.title}`);
+        }
+
+        case "project_info": {
+          const projectRoot = resolveProject(a.project_id);
+          const config = loadConfig(projectRoot);
+          const name = config?.project ?? path.basename(projectRoot);
+          const allTasks = listAllTasks(projectRoot);
+          const counts: Record<string, number> = {};
+          for (const t of allTasks) {
+            const s = t.frontmatter.status;
+            counts[s] = (counts[s] ?? 0) + 1;
+          }
+          const milestones = listMilestones(projectRoot);
+          const openMs = milestones.filter((m) => m.frontmatter.status === "open").length;
+          const docs = listDocuments(projectRoot);
+          const statusLine = Object.entries(counts).map(([s, n]) => `${s}: ${n}`).join(" · ") || "none";
+          const lines = [
+            `## ${name}`,
+            `project_id: \`${a.project_id}\``,
+            `Path: ${projectRoot}`,
+            "",
+            `**Tasks:** ${statusLine}`,
+            `**Milestones:** ${openMs} open, ${milestones.length - openMs} closed`,
+            `**Documents:** ${docs.length}`,
+          ];
+          return text(lines.join("\n"));
+        }
+
         // ── Documents ─────────────────────────────────────────────────────────
         case "document_create": {
           const projectRoot = resolveProject(a.project_id);
@@ -508,25 +605,16 @@ export function createServer(): Server {
 
         case "document_view": {
           const projectRoot = resolveProject(a.project_id);
-          const { safePath } = await import("./security.js");
-          const { IKE_DIR, DIRECTORIES } = await import("./config.js");
-          const dir = safePath(projectRoot, IKE_DIR, DIRECTORIES.DOCUMENTS);
-          if (!fs.existsSync(dir)) return text("No documents found.");
-          const match = fs.readdirSync(dir).find((f) => f.startsWith(a.document_id as string));
-          if (!match) return text(`Document ${a.document_id} not found.`);
-          const doc = readMarkdown<{ id: string; title: string; created: string }>(path.join(dir, match));
+          const filePath = findDocumentFile(projectRoot, a.document_id as string);
+          if (!filePath) return text(`Document ${a.document_id} not found.`);
+          const doc = readMarkdown<DocumentFrontmatter>(filePath);
           return text(`## ${doc.frontmatter.id} — ${doc.frontmatter.title}\n\n${doc.content}`);
         }
 
         case "document_update": {
           const projectRoot = resolveProject(a.project_id);
-          const { safePath } = await import("./security.js");
-          const { IKE_DIR, DIRECTORIES } = await import("./config.js");
-          const dir = safePath(projectRoot, IKE_DIR, DIRECTORIES.DOCUMENTS);
-          if (!fs.existsSync(dir)) return text("No documents found.");
-          const match = fs.readdirSync(dir).find((f) => f.startsWith(a.document_id as string));
-          if (!match) return text(`Document ${a.document_id} not found.`);
-          const filePath = path.join(dir, match);
+          const filePath = findDocumentFile(projectRoot, a.document_id as string);
+          if (!filePath) return text(`Document ${a.document_id} not found.`);
           const doc = readMarkdown<DocumentFrontmatter>(filePath);
           const fm = { ...doc.frontmatter, updated: today() };
           if (a.title !== undefined) fm.title = a.title as string;

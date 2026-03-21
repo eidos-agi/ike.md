@@ -134,6 +134,20 @@ export function findTaskFile(projectRoot: string, id: string): string | null {
   return null;
 }
 
+export function listAllTasks(projectRoot: string): ParsedFile<TaskFrontmatter>[] {
+  const results = listTasks(projectRoot, true);
+  const archiveDir = safePath(projectRoot, IKE_DIR, DIRECTORIES.ARCHIVE);
+  if (fs.existsSync(archiveDir)) {
+    fs.readdirSync(archiveDir)
+      .filter((f) => f.endsWith(".md"))
+      .sort()
+      .forEach((f) => {
+        try { results.push(readMarkdown<TaskFrontmatter>(path.join(archiveDir, f))); } catch {}
+      });
+  }
+  return results;
+}
+
 // ── Milestones ────────────────────────────────────────────────────────────────
 
 function milestoneDir(projectRoot: string): string {
@@ -159,6 +173,13 @@ export function milestonePath(projectRoot: string, id: string, title: string): s
   return safePath(projectRoot, IKE_DIR, DIRECTORIES.MILESTONES, `${id} - ${slug}.md`);
 }
 
+export function findMilestoneFile(projectRoot: string, id: string): string | null {
+  const dir = milestoneDir(projectRoot);
+  if (!fs.existsSync(dir)) return null;
+  const match = fs.readdirSync(dir).find((f) => f.startsWith(id));
+  return match ? path.join(dir, match) : null;
+}
+
 // ── Documents ─────────────────────────────────────────────────────────────────
 
 function documentDir(projectRoot: string): string {
@@ -182,4 +203,11 @@ export function nextDocumentId(projectRoot: string): string {
 export function documentPath(projectRoot: string, id: string, title: string): string {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
   return safePath(projectRoot, IKE_DIR, DIRECTORIES.DOCUMENTS, `${id} - ${slug}.md`);
+}
+
+export function findDocumentFile(projectRoot: string, id: string): string | null {
+  const dir = documentDir(projectRoot);
+  if (!fs.existsSync(dir)) return null;
+  const match = fs.readdirSync(dir).find((f) => f.startsWith(id));
+  return match ? path.join(dir, match) : null;
 }
