@@ -23,7 +23,13 @@ class ParsedFile:
 # ── YAML formatting to match gray-matter ──────────────────────────────────────
 
 class _GrayMatterDumper(yaml.SafeDumper):
-    """Custom YAML dumper that matches gray-matter (js-yaml) output."""
+    """Custom YAML dumper that matches gray-matter (js-yaml) output.
+
+    Key differences from default PyYAML:
+    - Strings that look like dates get single-quoted: '2026-03-22'
+    - List items are indented 2 spaces under their key (default_flow_style=False
+      + best_width handling doesn't do this, we need indent+offset config)
+    """
     pass
 
 
@@ -66,7 +72,26 @@ def write_markdown(file_path: str, frontmatter: dict[str, Any], content: str) ->
     # Filter out None values
     fm = {k: v for k, v in frontmatter.items() if v is not None}
 
-    fm_str = yaml.dump(fm, Dumper=_GrayMatterDumper, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    fm_str = yaml.dump(
+        fm, Dumper=_GrayMatterDumper,
+        default_flow_style=False, sort_keys=False, allow_unicode=True,
+        indent=2,  # base indent
+    )
+    # gray-matter (js-yaml) indents list items under their key with 2 spaces.
+    # PyYAML puts them at the same level. Fix by adding 2-space indent to list items
+    # that follow a key line.
+    lines = fm_str.split("\n")
+    fixed = []
+    in_list = False
+    for line in lines:
+        if line.startswith("- "):
+            # This is a list item at root level — indent it
+            fixed.append("  " + line)
+            in_list = True
+        else:
+            in_list = False
+            fixed.append(line)
+    fm_str = "\n".join(fixed)
 
     with open(file_path, "w") as f:
         f.write("---\n")
