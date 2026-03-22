@@ -1,0 +1,16 @@
+{
+  "tool": "project_list",
+  "fixture_id": "001-with-projects",
+  "input": {},
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "- `9b898ffa-9ac3-467d-9f56-be8f113f8095` → /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-8xlAqZ\n- `92db9b70-e1f6-435a-b0cf-64a5419237de` → /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-pIP0tG\n- `d09ada34-4714-4027-a94c-8b5b9c77c92b` → /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-tQzp0t\n- `a5556b7a-d912-4bb1-8811-d6c7176ff376` → /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-AXH3mp"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

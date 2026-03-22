@@ -1,0 +1,18 @@
+{
+  "tool": "project_set",
+  "fixture_id": "002-no-project",
+  "input": {
+    "path": "/nonexistent/path"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: No ike.json at /nonexistent/path. Call project_init first to initialize ike.md in this directory."
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

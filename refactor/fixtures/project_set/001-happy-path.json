@@ -1,0 +1,18 @@
+{
+  "tool": "project_set",
+  "fixture_id": "001-happy-path",
+  "input": {
+    "path": "/var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-AXH3mp"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Project registered: **set-test**\nproject_id: `a5556b7a-d912-4bb1-8811-d6c7176ff376`\n\nUse this project_id in all subsequent calls."
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

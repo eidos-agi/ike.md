@@ -1,0 +1,19 @@
+{
+  "tool": "document_view",
+  "fixture_id": "001-exists",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "document_id": "DOC-0001"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "## DOC-0001 — Architecture Notes\n\n# Arch\n\nWe use microservices."
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

@@ -1,0 +1,23 @@
+{
+  "tool": "project_init",
+  "fixture_id": "001-happy-path",
+  "input": {
+    "path": "/var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-8xlAqZ",
+    "name": "test-project"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Project initialized: **test-project**\nproject_id: `9b898ffa-9ac3-467d-9f56-be8f113f8095`\nPath: /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-8xlAqZ\n\nUse this project_id in all subsequent calls."
+      }
+    ]
+  },
+  "side_effects": {
+    "ike_dir": {
+      "ike.json": "{\n  \"id\": \"9b898ffa-9ac3-467d-9f56-be8f113f8095\",\n  \"version\": \"0.1.0\",\n  \"project\": \"test-project\",\n  \"created\": \"2026-03-22\",\n  \"ike_path\": \".ike\"\n}\n"
+    }
+  },
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

@@ -1,0 +1,24 @@
+{
+  "tool": "document_create",
+  "fixture_id": "001-with-content",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "title": "Architecture Notes",
+    "content": "# Arch\n\nWe use microservices.",
+    "tags": [
+      "architecture",
+      "design"
+    ]
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Created document **DOC-0001** — Architecture Notes"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

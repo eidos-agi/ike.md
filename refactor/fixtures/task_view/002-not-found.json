@@ -1,0 +1,19 @@
+{
+  "tool": "task_view",
+  "fixture_id": "002-not-found",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "task_id": "TASK-9999"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Task TASK-9999 not found."
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

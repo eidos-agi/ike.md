@@ -1,0 +1,20 @@
+{
+  "tool": "document_update",
+  "fixture_id": "001-replace-content",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "document_id": "DOC-0001",
+    "content": "# Updated\n\nNew content."
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Updated **DOC-0001** — Architecture Notes"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

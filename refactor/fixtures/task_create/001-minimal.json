@@ -1,0 +1,23 @@
+{
+  "tool": "task_create",
+  "fixture_id": "001-minimal",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "title": "My First Task"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Created **TASK-0001** — My First Task\nStatus: To Do\nFile: /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-NQJ9qx/.ike/tasks/TASK-0001 - my-first-task.md"
+      }
+    ]
+  },
+  "side_effects": {
+    "tasks": {
+      "TASK-0001 - my-first-task.md": "---\nid: TASK-0001\ntitle: My First Task\nstatus: To Do\ncreated: '2026-03-22'\n---\n\n"
+    }
+  },
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

@@ -1,0 +1,19 @@
+{
+  "tool": "task_list",
+  "fixture_id": "003-filter-tag",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "tag": "urgent"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "▶ **TASK-0002** [high] — Full Task"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

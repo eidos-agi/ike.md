@@ -1,0 +1,19 @@
+{
+  "tool": "milestone_create",
+  "fixture_id": "002-minimal",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "title": "Stretch Goals"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Created milestone **MS-0002** — Stretch Goals"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

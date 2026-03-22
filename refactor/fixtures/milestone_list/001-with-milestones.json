@@ -1,0 +1,18 @@
+{
+  "tool": "milestone_list",
+  "fixture_id": "001-with-milestones",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "○ **MS-0001** — v1.0 Release (due 2026-06-01)\n○ **MS-0002** — Stretch Goals"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

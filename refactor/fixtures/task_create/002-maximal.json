@@ -1,0 +1,47 @@
+{
+  "tool": "task_create",
+  "fixture_id": "002-maximal",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "title": "Full Task",
+    "description": "A detailed task",
+    "status": "In Progress",
+    "priority": "high",
+    "milestone": "MS-0001",
+    "assignees": [
+      "daniel"
+    ],
+    "tags": [
+      "urgent",
+      "backend"
+    ],
+    "dependencies": [
+      "TASK-0001"
+    ],
+    "acceptance_criteria": [
+      "Tests pass",
+      "Code reviewed"
+    ],
+    "definition_of_done": [
+      "Merged to main",
+      "Deployed"
+    ],
+    "visionlog_goal_id": "GOAL-001"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Created **TASK-0002** — Full Task\nStatus: In Progress\nFile: /var/folders/x_/j3nb_xdn5pq2845d4xsd_rn80000gn/T/ike-fixtures-NQJ9qx/.ike/tasks/TASK-0002 - full-task.md"
+      }
+    ]
+  },
+  "side_effects": {
+    "tasks": {
+      "TASK-0001 - my-first-task.md": "---\nid: TASK-0001\ntitle: My First Task\nstatus: To Do\ncreated: '2026-03-22'\n---\n\n",
+      "TASK-0002 - full-task.md": "---\nid: TASK-0002\ntitle: Full Task\nstatus: In Progress\ncreated: '2026-03-22'\npriority: high\nmilestone: MS-0001\nassignees:\n  - daniel\ntags:\n  - urgent\n  - backend\ndependencies:\n  - TASK-0001\nacceptance-criteria:\n  - Tests pass\n  - Code reviewed\ndefinition-of-done:\n  - Merged to main\n  - Deployed\nvisionlog_goal_id: GOAL-001\n---\nA detailed task\n"
+    }
+  },
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

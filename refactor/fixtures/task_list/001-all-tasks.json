@@ -1,0 +1,18 @@
+{
+  "tool": "task_list",
+  "fixture_id": "001-all-tasks",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "○ **TASK-0001** — My First Task\n▶ **TASK-0002** [high] — Full Task\n○ **TASK-0003** — Draft Task\n○ **TASK-0004** — café ñ 日本語 émojis 🚀"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

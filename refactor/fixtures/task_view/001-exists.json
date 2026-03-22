@@ -1,0 +1,19 @@
+{
+  "tool": "task_view",
+  "fixture_id": "001-exists",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "task_id": "TASK-0001"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "## TASK-0001 — My First Task\n**Status:** To Do\n**Created:** 2026-03-22"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

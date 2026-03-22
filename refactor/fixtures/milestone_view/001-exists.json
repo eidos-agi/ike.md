@@ -1,0 +1,19 @@
+{
+  "tool": "milestone_view",
+  "fixture_id": "001-exists",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "milestone_id": "MS-0001"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "## MS-0001 — v1.0 Release\n**Status:** open\n**Due:** 2026-06-01\n**Created:** 2026-03-22\n\nShip it"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}

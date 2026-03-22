@@ -1,0 +1,21 @@
+{
+  "tool": "milestone_create",
+  "fixture_id": "001-with-due",
+  "input": {
+    "project_id": "bbfcf35f-0108-46ae-9ff0-e6876bccbf07",
+    "title": "v1.0 Release",
+    "description": "Ship it",
+    "due": "2026-06-01"
+  },
+  "output": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Created milestone **MS-0001** — v1.0 Release"
+      }
+    ]
+  },
+  "side_effects": {},
+  "source_language": "typescript",
+  "captured_at": "2026-03-22"
+}
