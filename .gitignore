@@ -35,3 +35,4 @@ htmlcov/
 .ruff_cache/
 
 .mcp.json
+.test-forge/
