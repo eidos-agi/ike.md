@@ -67,6 +67,7 @@ function formatTask(t: ReturnType<typeof readMarkdown<TaskFrontmatter>>): string
     fm.assignees?.length ? `**Assignees:** ${fm.assignees.join(", ")}` : null,
     fm.tags?.length ? `**Tags:** ${fm.tags.join(", ")}` : null,
     fm.dependencies?.length ? `**Depends on:** ${fm.dependencies.join(", ")}` : null,
+    fm.blocked_reason ? `**⛔ Blocked:** ${fm.blocked_reason}` : null,
     `**Created:** ${fm.created}`,
     fm.updated ? `**Updated:** ${fm.updated}` : null,
   ].filter(Boolean);
@@ -148,6 +149,8 @@ export function createServer(): Server {
             dependencies: { type: "array", items: { type: "string" }, description: "Task IDs this depends on" },
             acceptance_criteria: { type: "array", items: { type: "string" } },
             definition_of_done: { type: "array", items: { type: "string" } },
+            visionlog_goal_id: { type: "string", description: "visionlog GOAL-xxx this task serves. Optional — links execution back to the contract." },
+            blocked_reason: { type: "string", description: "Why this task is blocked. Set when status is 'In Progress' but work cannot proceed. Must name the reason precisely — vague reasons are not acceptable." },
           },
         },
       },
@@ -198,6 +201,7 @@ export function createServer(): Server {
             dependencies: { type: "array", items: { type: "string" } },
             acceptance_criteria: { type: "array", items: { type: "string" } },
             definition_of_done: { type: "array", items: { type: "string" } },
+            blocked_reason: { type: "string", description: "Why this task is blocked. Set to empty string to clear. Must name the reason precisely." },
             append_notes: { type: "string", description: "Append text to the task's notes section" },
           },
         },
@@ -401,6 +405,8 @@ export function createServer(): Server {
             ...(a.dependencies ? { dependencies: a.dependencies as string[] } : {}),
             ...(a.acceptance_criteria ? { "acceptance-criteria": a.acceptance_criteria as string[] } : {}),
             ...(a.definition_of_done ? { "definition-of-done": a.definition_of_done as string[] } : {}),
+            ...(a.visionlog_goal_id ? { visionlog_goal_id: a.visionlog_goal_id as string } : {}),
+            ...(a.blocked_reason ? { blocked_reason: a.blocked_reason as string } : {}),
           };
           const filePath = taskPath(projectRoot, id, title);
           writeMarkdown(filePath, fm, (a.description as string) ?? "");
@@ -417,9 +423,10 @@ export function createServer(): Server {
           if (!tasks.length) return text("No tasks found.");
           return text(tasks.map((t) => {
             const fm = t.frontmatter;
-            const badge = fm.status === "Done" ? "✓" : fm.status === "In Progress" ? "▶" : "○";
+            const badge = fm.blocked_reason ? "⛔" : fm.status === "Done" ? "✓" : fm.status === "In Progress" ? "▶" : "○";
             const pri = fm.priority ? ` [${fm.priority}]` : "";
-            return `${badge} **${fm.id}**${pri} — ${fm.title}`;
+            const blocked = fm.blocked_reason ? ` — BLOCKED: ${fm.blocked_reason}` : "";
+            return `${badge} **${fm.id}**${pri} — ${fm.title}${blocked}`;
           }).join("\n"));
         }
 
@@ -446,6 +453,9 @@ export function createServer(): Server {
           if (a.dependencies !== undefined) fm.dependencies = a.dependencies as string[];
           if (a.acceptance_criteria !== undefined) fm["acceptance-criteria"] = a.acceptance_criteria as string[];
           if (a.definition_of_done !== undefined) fm["definition-of-done"] = a.definition_of_done as string[];
+          if (a.blocked_reason !== undefined) {
+            if (a.blocked_reason === "") { delete fm.blocked_reason; } else { fm.blocked_reason = a.blocked_reason as string; }
+          }
           const content = a.append_notes
             ? `${task.content}\n\n${a.append_notes}`.trim()
             : a.description !== undefined ? a.description as string : task.content;

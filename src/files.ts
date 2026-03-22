@@ -22,6 +22,8 @@ export interface TaskFrontmatter {
   dependencies?: string[];
   "acceptance-criteria"?: string[];
   "definition-of-done"?: string[];
+  visionlog_goal_id?: string;
+  blocked_reason?: string;
 }
 
 export interface MilestoneFrontmatter {
