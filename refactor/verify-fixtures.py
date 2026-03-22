@@ -51,6 +51,9 @@ def normalize(text: str) -> str:
     text = re.sub(r"/var/folders/[^\s]+", "<TMPDIR>", text)
     text = re.sub(r"/tmp/[^\s]+", "<TMPDIR>", text)
     text = re.sub(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "<GUID>", text)
+    # Normalize temp dir basenames used as default project names
+    text = re.sub(r"\*\*ike-[a-z]+-[A-Za-z0-9_]+\*\*", "**<TMPNAME>**", text)
+    text = re.sub(r"\*\*rmd-[a-z]+-[A-Za-z0-9_]+\*\*", "**<TMPNAME>**", text)
     return text
 
 
