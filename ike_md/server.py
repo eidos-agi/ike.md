@@ -27,6 +27,11 @@ from .files import (
     next_document_id,
     document_path,
     find_document_file,
+    graph_node_path,
+    read_graph_node,
+    write_graph_node,
+    list_graph_nodes,
+    find_graph_node_file,
 )
 from .security import safe_path
 from .config import IKE_DIR, DIRECTORIES
@@ -491,6 +496,271 @@ def document_update(
         new_content = doc.content
     write_markdown(fp, fm, new_content)
     return f"Updated **{fm['id']}** — {fm['title']}"
+
+
+# ── Graph ────────────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def graph_create_node(
+    project_id: str,
+    node_id: str,
+    node_type: str,
+    title: str,
+    attributes: dict | None = None,
+    edges: list[dict] | None = None,
+) -> str:
+    """Create a graph node. Nodes represent people, emails, artifacts, deadlines, Wrike cards, or projects.
+
+    Args:
+        project_id: The project GUID
+        node_id: Unique ID for the node (e.g., 'person/suman-panda', 'wrike/scr-001')
+        node_type: Type of node (person, email, artifact, deadline, wrike_card, project, repo)
+        title: Human-readable title
+        attributes: Optional dict of additional attributes
+        edges: Optional list of edges, each with 'type' and 'target' keys
+    """
+    project_root = resolve_project(project_id)
+    fp = graph_node_path(project_root, node_id)
+    if os.path.exists(fp):
+        return f"Node `{node_id}` already exists. Use graph_add_edge to add connections."
+
+    data: dict = {
+        "id": node_id,
+        "type": node_type,
+        "title": title,
+        "created": _today(),
+    }
+    if attributes:
+        data["attributes"] = attributes
+    if edges:
+        data["edges"] = edges
+
+    write_graph_node(fp, data)
+    edge_count = len(edges) if edges else 0
+    return f"Created graph node `{node_id}` ({node_type}) — {title}\nEdges: {edge_count}\nFile: {fp}"
+
+
+@mcp.tool()
+def graph_get_node(project_id: str, node_id: str) -> str:
+    """Read a graph node by ID. Returns all attributes and edges.
+
+    Args:
+        project_id: The project GUID
+        node_id: The node ID to retrieve
+    """
+    project_root = resolve_project(project_id)
+    fp = find_graph_node_file(project_root, node_id)
+    if not fp:
+        return f"Node `{node_id}` not found."
+
+    data = read_graph_node(fp)
+    lines = [
+        f"## {data.get('title', node_id)}",
+        f"**ID:** `{data.get('id', node_id)}`",
+        f"**Type:** {data.get('type', 'unknown')}",
+    ]
+    if data.get("created"):
+        lines.append(f"**Created:** {data['created']}")
+
+    attrs = data.get("attributes", {})
+    if attrs:
+        lines.append("\n**Attributes:**")
+        for k, v in attrs.items():
+            lines.append(f"  {k}: {v}")
+
+    edges = data.get("edges", [])
+    if edges:
+        lines.append(f"\n**Edges ({len(edges)}):**")
+        for e in edges:
+            lines.append(f"  —[{e.get('type', '?')}]→ `{e.get('target', '?')}`")
+    else:
+        lines.append("\n**Edges:** none")
+
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def graph_add_edge(
+    project_id: str,
+    source_node_id: str,
+    edge_type: str,
+    target_node_id: str,
+) -> str:
+    """Add a typed edge from one node to another.
+
+    Args:
+        project_id: The project GUID
+        source_node_id: The node to add the edge FROM
+        edge_type: Relationship type (e.g., 'approver', 'vendor', 'artifact', 'due_by', 'subproject', 'email_thread')
+        target_node_id: The node to add the edge TO
+    """
+    project_root = resolve_project(project_id)
+    fp = find_graph_node_file(project_root, source_node_id)
+    if not fp:
+        return f"Source node `{source_node_id}` not found."
+
+    data = read_graph_node(fp)
+    edges = data.get("edges", [])
+
+    # Check for duplicate
+    for e in edges:
+        if e.get("type") == edge_type and e.get("target") == target_node_id:
+            return f"Edge already exists: `{source_node_id}` —[{edge_type}]→ `{target_node_id}`"
+
+    edges.append({"type": edge_type, "target": target_node_id})
+    data["edges"] = edges
+    write_graph_node(fp, data)
+    return f"Added edge: `{source_node_id}` —[{edge_type}]→ `{target_node_id}`"
+
+
+@mcp.tool()
+def graph_list_nodes(
+    project_id: str,
+    node_type: str | None = None,
+    query: str | None = None,
+) -> str:
+    """List graph nodes with optional filtering by type or keyword search.
+
+    Args:
+        project_id: The project GUID
+        node_type: Filter by node type (person, email, artifact, deadline, wrike_card, project)
+        query: Search keyword — matches node ID, title, and attribute values
+    """
+    project_root = resolve_project(project_id)
+    nodes = list_graph_nodes(project_root)
+
+    if node_type:
+        nodes = [n for n in nodes if n.get("type") == node_type]
+
+    if query:
+        q = query.lower()
+
+        def _matches(node: dict) -> bool:
+            if q in node.get("id", "").lower():
+                return True
+            if q in node.get("title", "").lower():
+                return True
+            for v in node.get("attributes", {}).values():
+                if q in str(v).lower():
+                    return True
+            return False
+
+        nodes = [n for n in nodes if _matches(n)]
+
+    if not nodes:
+        return "No graph nodes found."
+
+    lines = []
+    for n in nodes:
+        edge_count = len(n.get("edges", []))
+        edges_str = f" ({edge_count} edges)" if edge_count else ""
+        lines.append(f"• `{n['id']}` [{n.get('type', '?')}] — {n.get('title', '(untitled)')}{edges_str}")
+
+    return f"**{len(lines)} nodes:**\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def graph_traverse(
+    project_id: str,
+    node_id: str,
+    depth: int = 1,
+) -> str:
+    """Follow all edges from a node and return the full connected subgraph in one call.
+
+    Returns the starting node plus all nodes reachable within the given depth,
+    with their attributes and edges. Executable references (aic_mail_query,
+    wrike_id, path) are highlighted for the agent to act on.
+
+    Args:
+        project_id: The project GUID
+        node_id: The starting node ID
+        depth: How many hops to follow (default 1 = direct connections only)
+    """
+    project_root = resolve_project(project_id)
+
+    # Load starting node
+    fp = find_graph_node_file(project_root, node_id)
+    if not fp:
+        return f"Node `{node_id}` not found."
+
+    root = read_graph_node(fp)
+    visited: dict[str, dict] = {node_id: root}
+    frontier = [(node_id, 0)]
+
+    # BFS traversal
+    while frontier:
+        current_id, current_depth = frontier.pop(0)
+        if current_depth >= depth:
+            continue
+        node = visited[current_id]
+        for edge in node.get("edges", []):
+            target_id = edge.get("target", "")
+            if target_id not in visited:
+                tfp = find_graph_node_file(project_root, target_id)
+                if tfp:
+                    target_data = read_graph_node(tfp)
+                    visited[target_id] = target_data
+                    frontier.append((target_id, current_depth + 1))
+
+    # Format output
+    lines = []
+
+    # Root node header
+    attrs = root.get("attributes", {})
+    status = attrs.get("status", "")
+    deadline = attrs.get("deadline", "")
+    header = f"## {root.get('title', node_id)}"
+    if status or deadline:
+        meta = " | ".join(filter(None, [
+            f"Status: {status}" if status else "",
+            f"Deadline: {deadline}" if deadline else "",
+        ]))
+        header += f"\n{meta}"
+    lines.append(header)
+
+    # Connected nodes
+    edges = root.get("edges", [])
+    if edges:
+        lines.append(f"\n**CONNECTED ({len(edges)}):**")
+        for edge in edges:
+            target_id = edge.get("target", "?")
+            edge_type = edge.get("type", "?")
+            target = visited.get(target_id)
+            if target:
+                tattrs = target.get("attributes", {})
+                detail_parts = []
+                # Pick the most useful attributes to show inline
+                for key in ("role", "email", "status", "date", "consequence", "path",
+                            "aic_mail_query", "wrike_id", "hard"):
+                    if key in tattrs:
+                        detail_parts.append(f"{key}: {tattrs[key]}")
+                detail = " | ".join(detail_parts) if detail_parts else ""
+                detail_str = f" ({detail})" if detail else ""
+                lines.append(f"  —[{edge_type}]→ **{target.get('title', target_id)}**{detail_str}")
+            else:
+                lines.append(f"  —[{edge_type}]→ `{target_id}` (not found in graph)")
+
+    # Executable references
+    exec_refs = []
+    for nid, node in visited.items():
+        if nid == node_id:
+            continue
+        na = node.get("attributes", {})
+        if na.get("aic_mail_query"):
+            exec_refs.append(f"  aic-mail: mail_search(\"{na['aic_mail_query']}\")")
+            if na.get("outbound_id"):
+                exec_refs.append(f"  aic-mail: mail_read({na['outbound_id']})")
+        if na.get("wrike_id"):
+            exec_refs.append(f"  wrike: get_task(\"{na['wrike_id']}\")")
+        if na.get("path"):
+            exec_refs.append(f"  file: {na['path']}")
+
+    if exec_refs:
+        lines.append(f"\n**EXECUTABLE REFERENCES:**")
+        lines.extend(exec_refs)
+
+    return "\n".join(lines)
 
 
 def main():

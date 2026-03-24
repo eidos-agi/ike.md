@@ -1,0 +1,15 @@
+{
+  "id": "07ee219a-9ea4-4afe-8d7a-7f35a4fbcec5",
+  "version": "0.1.0",
+  "projectName": "pypi-dev-workflow",
+  "created": "2026-03-23",
+  "phase": "research",
+  "transitions": [
+    {
+      "phase": "research",
+      "date": "2026-03-23"
+    }
+  ],
+  "question": "What is the professional process for developing a Python package locally, testing changes in real downstream projects, and publishing to PyPI \u2014 without breaking production consumers?",
+  "context": "We own ike.md, a Python MCP server package published on PyPI. It's installed from PyPI in multiple cockpit projects. We need to add features (graph layer) and test them against real cockpit projects while developing, then publish when ready. Current pain point: editing source in repos-eidos-agi/ike.md has no effect on the installed version running in cockpits. Need to understand the full professional lifecycle: local dev, editable installs, version pinning, pre-release tags, CI/CD for PyPI, how to avoid breaking downstream consumers."
+}

@@ -1,0 +1,35 @@
+{
+  "id": "4f4e173e-c5d7-4a6b-ac62-4c6e90c170db",
+  "version": "0.1.0",
+  "projectName": "graph-layer",
+  "created": "2026-03-23",
+  "phase": "decided",
+  "transitions": [
+    {
+      "phase": "research",
+      "date": "2026-03-23"
+    },
+    {
+      "phase": "locked",
+      "date": "2026-03-23",
+      "note": "Criteria weights frozen"
+    },
+    {
+      "phase": "reviewed",
+      "date": "2026-03-23",
+      "note": "Peer review by Gemini 2.5 Pro (via PAL)"
+    },
+    {
+      "phase": "scored",
+      "date": "2026-03-23",
+      "note": "Scored candidate: graph-in-ike"
+    },
+    {
+      "phase": "decided",
+      "date": "2026-03-23",
+      "note": "Add .ike/graph/ with YAML node files and four new tools (graph_create_node, graph_get_node, graph_ad"
+    }
+  ],
+  "question": "Should ike.md add a project-scoped knowledge graph (.ike/graph/) with YAML node files and typed edges, enabling AI agents to traverse connections between people, emails, artifacts, Wrike cards, and deadlines without re-discovering context each session?",
+  "context": "Ike.md is a lightweight, file-based task execution system (MCP server, 21 tools). Projects are directories with .ike/ folders containing tasks, milestones, and documents. Currently projects are just containers \u2014 no attributes, no connections, no context about what they touch. The Director of AI cockpit needs agents to pick up work with full context across email (aic-mail MCP), Wrike (wrike MCP), research projects (research-md), GitHub repos, and people. Today these connections live in the human's head. The proposed solution adds a .ike/graph/ directory with YAML files (one per node), typed edges, and four new tools. Scale is ~200-500 nodes total. Must be git-friendly, LLM-readable, no external services. Validated by Gemini 2.5 Pro: graph inside ike (not separate service), flat projects with edge-based hierarchy (not recursive directories), YAML files correct at this scale, full graph better than single REFERENCES.yaml. PHART library can render ASCII graphs in terminal via NetworkX."
+}

@@ -1,4 +1,4 @@
-"""Markdown file I/O, ID generation, task/milestone/document operations."""
+"""Markdown file I/O, ID generation, task/milestone/document/graph operations."""
 
 import os
 import re
@@ -269,4 +269,77 @@ def find_document_file(project_root: str, id: str) -> str | None:
     for f in os.listdir(d):
         if f.startswith(id):
             return os.path.join(d, f)
+    return None
+
+
+# ── Graph ────────────────────────────────────────────────────────────────────
+
+def _graph_dir(project_root: str) -> str:
+    return safe_path(project_root, IKE_DIR, DIRECTORIES["GRAPH"])
+
+
+def _slugify_node_id(node_id: str) -> str:
+    """Sanitize a node ID for use as a filename."""
+    slug = re.sub(r"[^a-z0-9]+", "-", node_id.lower()).strip("-")
+    return slug
+
+
+def graph_node_path(project_root: str, node_id: str) -> str:
+    return safe_path(project_root, IKE_DIR, DIRECTORIES["GRAPH"], f"{_slugify_node_id(node_id)}.yaml")
+
+
+def read_graph_node(file_path: str) -> dict[str, Any]:
+    with open(file_path) as f:
+        data = yaml.safe_load(f)
+    # Convert date objects back to strings
+    if data and isinstance(data, dict):
+        for k, v in data.items():
+            if hasattr(v, "isoformat"):
+                data[k] = v.isoformat()
+    return data or {}
+
+
+def write_graph_node(file_path: str, data: dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    # Filter out None values
+    clean = {k: v for k, v in data.items() if v is not None}
+    with open(file_path, "w") as f:
+        yaml.dump(
+            clean, f,
+            default_flow_style=False, sort_keys=False, allow_unicode=True,
+            indent=2,
+        )
+
+
+def list_graph_nodes(project_root: str) -> list[dict[str, Any]]:
+    d = _graph_dir(project_root)
+    if not os.path.exists(d):
+        return []
+    results = []
+    for f in sorted(os.listdir(d)):
+        if f.endswith(".yaml"):
+            try:
+                results.append(read_graph_node(os.path.join(d, f)))
+            except Exception:
+                pass
+    return results
+
+
+def find_graph_node_file(project_root: str, node_id: str) -> str | None:
+    """Find a graph node file by ID. Checks exact slug match."""
+    d = _graph_dir(project_root)
+    if not os.path.exists(d):
+        return None
+    target = f"{_slugify_node_id(node_id)}.yaml"
+    if os.path.exists(os.path.join(d, target)):
+        return os.path.join(d, target)
+    # Fallback: scan files and match on id field
+    for f in os.listdir(d):
+        if f.endswith(".yaml"):
+            try:
+                data = read_graph_node(os.path.join(d, f))
+                if data.get("id") == node_id:
+                    return os.path.join(d, f)
+            except Exception:
+                pass
     return None
