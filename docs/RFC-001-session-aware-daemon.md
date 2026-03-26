@@ -26,11 +26,13 @@ This is why both sides use queues with exponential backoff.
 
 ### MCP server side
 
-When `project_set` is called, it appends to `~/.config/ike/daemon-queue.jsonl`:
+When `project_set` or `project_init` is called, it appends to `~/.config/ike/daemon-queue.jsonl`:
 
 ```json
 {"type": "link_project", "project_id": "25eb3f59-...", "project_path": "/repos/cockpit-eidos", "queued_at": "2026-03-26T00:01:00Z"}
 ```
+
+Both `project_set` (register existing) and `project_init` (create new) establish a session × project link. Both write the same queue entry. The daemon treats them identically.
 
 This is the signal: "I just ran. The evidence is somewhere in a JSONL on the hot list. Go find it."
 
@@ -63,7 +65,7 @@ Installed by `ike-daemon install` into `~/.claude/settings.json`:
 }
 ```
 
-Fires on every session start. Writes to the same queue the MCP server uses. Two producers, one consumer.
+Fires on every session start. Writes to the same queue the MCP server uses. Three producers, one consumer.
 
 ## Data Flow
 
@@ -77,8 +79,8 @@ SESSION START
 │
 │  ... session runs, agent works ...
 │
-├─ Agent calls ike.project_set(path)
-│   ├─ MCP server registers project (normal behavior)
+├─ Agent calls ike.project_set(path) or ike.project_init(path)
+│   ├─ MCP server registers/creates project (normal behavior)
 │   └─ MCP server → queue: {type: "link_project", project_id, project_path}
 │
 ├─ Daemon reads queue → starts searching HOT LIST
@@ -192,7 +194,7 @@ Daemon reads all lines, processes them, truncates. `watch_session` → hot list.
 
 The daemon reads new bytes from each hot list JSONL on every poll cycle (30s). For each new line:
 
-1. **Is it a `project_set` call?** → Extract project_id from tool arguments. Check if this session already has this link. If not, add to link list. (This is the fast path — daemon sees `project_set` directly in the stream, no backoff needed. The queue+backoff is the fallback for when the JSONL hasn't flushed yet.)
+1. **Is it a `project_set` or `project_init` call?** → Extract project_id from tool arguments. Check if this session already has this link. If not, add to link list. (This is the fast path — daemon sees it directly in the stream, no backoff needed. The queue+backoff is the fallback for when the JSONL hasn't flushed yet.)
 
 2. **Is it a plan approval?** → Look up this session's links. Route to the linked project(s). Create PLAN-XXXX in `.ike/plans/`, add event to `.ike/sessions.json`.
 
@@ -210,12 +212,12 @@ Detection happens in the stream. Routing uses the link list. Both are in the sam
 | Links session to project by cwd at registration | Link list: session × project via project_set detection |
 | One-to-one: session belongs to one project | Many-to-many: session can link to multiple projects |
 | No retry on flush delay | Exponential backoff for pending links |
-| Queue has one producer (hook) | Queue has two producers (hook + project_set in MCP server) |
+| Queue has one producer (hook) | Queue has three producers (hook + project_set + project_init) |
 | State: offsets only | State: hot list + link list + pending links |
 
 ## Implementation Order
 
-1. Update `project_set` in server.py to append `link_project` to queue (~5 lines)
+1. Update `project_set` AND `project_init` in server.py to append `link_project` to queue (~5 lines each)
 2. Rewrite daemon state to use hot_list / link_list / pending_links
 3. Add pending link processing with exponential backoff
 4. Add `project_set` detection in the stream reader (fast path)
