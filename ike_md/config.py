@@ -16,6 +16,7 @@ DIRECTORIES = {
     "MILESTONES": "milestones",
     "DOCUMENTS": "documents",
     "GRAPH": "graph",
+    "PLANS": "plans",
 }
 
 # In-memory GUID → path registry. Per-process, no disk state.

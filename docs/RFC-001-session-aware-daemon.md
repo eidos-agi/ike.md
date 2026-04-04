@@ -14,7 +14,7 @@ The hot list is: **what to watch.**
 
 ### 2. The Link List (session × project)
 
-Every confirmed association between a session_id and a project_id. Built by detecting `project_set` tool calls in the JSONL streams. Many-to-many: one session can link to multiple projects, one project can be linked from multiple sessions.
+Every confirmed association between a session_id and a project_id. Built by detecting `project_set` and `project_init` tool calls in the JSONL streams. Many-to-many: one session can link to multiple projects, one project can be linked from multiple sessions.
 
 The link list is: **where to route.**
 
@@ -38,13 +38,13 @@ This is the signal: "I just ran. The evidence is somewhere in a JSONL on the hot
 
 ### Daemon side
 
-The daemon picks up the `link_project` job and starts searching the hot list for a JSONL that contains a `project_set` call with that `project_id`.
+The daemon picks up the `link_project` job and starts searching the hot list for a JSONL that contains a `project_set` or `project_init` call with that `project_id`.
 
 First try — not there yet (buffered). Retry with exponential backoff:
 - 5s → 10s → 20s → 40s → 60s (cap)
 - Max 10 retries (~5 minutes of patience)
 
-When found: the JSONL that contains the `project_set` call is the session. Extract `session_id` from the filename. Add to the link list: `{session_id, project_id, project_path, linked_at}`.
+When found: the JSONL that contains the `project_set`/`project_init` call is the session. Extract `session_id` from the filename. Add to the link list: `{session_id, project_id, project_path, linked_at}`.
 
 If never found after max retries: log a warning, drop the job. The JSONL was either never flushed or the session died.
 
@@ -181,7 +181,7 @@ ike-daemon stop        Stop the daemon
 
 ## Queue File
 
-`~/.config/ike/daemon-queue.jsonl` — append-only, two producers:
+`~/.config/ike/daemon-queue.jsonl` — append-only, three producers (hook, project_set, project_init):
 
 ```jsonl
 {"type":"watch_session","session_id":"02561bc3-...","jsonl":"/path/to/session.jsonl","cwd":"/Users/..."}

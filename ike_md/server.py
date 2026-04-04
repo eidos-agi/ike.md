@@ -32,6 +32,10 @@ from .files import (
     write_graph_node,
     list_graph_nodes,
     find_graph_node_file,
+    list_plans,
+    next_plan_id,
+    plan_path,
+    find_plan_file,
 )
 from .security import safe_path
 from .config import IKE_DIR, DIRECTORIES
@@ -141,6 +145,7 @@ def project_info(project_id: str) -> str:
     milestones = list_milestones(project_root)
     open_ms = sum(1 for m in milestones if m.frontmatter["status"] == "open")
     docs = list_documents(project_root)
+    plans = list_plans(project_root)
     status_line = " · ".join(f"{s}: {n}" for s, n in counts.items()) or "none"
     lines = [
         f"## {name}",
@@ -150,6 +155,7 @@ def project_info(project_id: str) -> str:
         f"**Tasks:** {status_line}",
         f"**Milestones:** {open_ms} open, {len(milestones) - open_ms} closed",
         f"**Documents:** {len(docs)}",
+        f"**Plans:** {len(plans)}",
     ]
     return "\n".join(lines)
 
@@ -761,6 +767,320 @@ def graph_traverse(
         lines.extend(exec_refs)
 
     return "\n".join(lines)
+
+
+# ── Plans ─────────────────────────────────────────────────────────────────────
+
+
+def _format_plan(fm: dict, content: str) -> str:
+    lines = [
+        f"## {fm['id']} — {fm['title']}",
+        f"**Status:** {fm['status']}",
+    ]
+    if fm.get("milestone"):
+        lines.append(f"**Milestone:** {fm['milestone']}")
+    if fm.get("tags"):
+        lines.append(f"**Tags:** {', '.join(fm['tags'])}")
+    lines.append(f"**Created:** {fm['created']}")
+    if fm.get("approved"):
+        lines.append(f"**Approved:** {fm['approved']}")
+    if fm.get("updated"):
+        lines.append(f"**Updated:** {fm['updated']}")
+    if fm.get("session_id"):
+        lines.append(f"**Session:** {fm['session_id']}")
+
+    if fm.get("verification"):
+        lines.append("\n**Verification Checklist:**")
+        for v in fm["verification"]:
+            lines.append(f"- [ ] {v}")
+
+    if content:
+        lines.append("\n**Content:**")
+        lines.append(content)
+
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def plan_create(
+    project_id: str,
+    title: str,
+    content: str = "",
+    tags: list[str] | None = None,
+    verification: list[str] | None = None,
+    milestone: str | None = None,
+    session_id: str | None = None,
+) -> str:
+    """Create a new plan. Plans are higher-level than tasks — they describe a strategy or approach that may spawn multiple tasks."""
+    project_root = resolve_project(project_id)
+    id = next_plan_id(project_root)
+    fm: dict = {
+        "id": id,
+        "title": title,
+        "status": "draft",
+        "created": _today(),
+    }
+    if session_id:
+        fm["session_id"] = session_id
+    if milestone:
+        fm["milestone"] = milestone
+    if tags:
+        fm["tags"] = tags
+    if verification:
+        fm["verification"] = verification
+
+    fp = plan_path(project_root, id, title)
+    write_markdown(fp, fm, content)
+    return f"Created plan **{id}** — {title}\nStatus: draft\nFile: {fp}"
+
+
+@mcp.tool()
+def plan_list(project_id: str, status: str | None = None) -> str:
+    """List plans with optional status filter (draft, approved, in-progress, completed, abandoned)."""
+    project_root = resolve_project(project_id)
+    plans = list_plans(project_root)
+    if status:
+        plans = [p for p in plans if p.frontmatter["status"] == status]
+    if not plans:
+        return "No plans found."
+    lines = []
+    for p in plans:
+        fm = p.frontmatter
+        badge = {"draft": "○", "approved": "✓", "in-progress": "▶", "completed": "✓", "abandoned": "✗"}.get(fm["status"], "?")
+        ms = f" [{fm['milestone']}]" if fm.get("milestone") else ""
+        lines.append(f"{badge} **{fm['id']}** — {fm['title']}{ms} ({fm['status']})")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def plan_view(project_id: str, plan_id: str) -> str:
+    """View a plan in full detail by ID."""
+    project_root = resolve_project(project_id)
+    fp = find_plan_file(project_root, plan_id)
+    if not fp:
+        return f"Plan {plan_id} not found."
+    plan = read_markdown(fp)
+    return _format_plan(plan.frontmatter, plan.content)
+
+
+@mcp.tool()
+def plan_update(
+    project_id: str,
+    plan_id: str,
+    status: str | None = None,
+    title: str | None = None,
+    content: str | None = None,
+    tags: list[str] | None = None,
+    verification: list[str] | None = None,
+    milestone: str | None = None,
+    append_content: str | None = None,
+) -> str:
+    """Update a plan's fields. Only provided fields are changed. Auto-sets approved date when status becomes 'approved'."""
+    project_root = resolve_project(project_id)
+    fp = find_plan_file(project_root, plan_id)
+    if not fp:
+        return f"Plan {plan_id} not found."
+    plan = read_markdown(fp)
+    fm = {**plan.frontmatter, "updated": _today()}
+    if title is not None:
+        fm["title"] = title
+    if status is not None:
+        fm["status"] = status
+        if status == "approved" and not plan.frontmatter.get("approved"):
+            fm["approved"] = _today()
+    if tags is not None:
+        fm["tags"] = tags
+    if verification is not None:
+        fm["verification"] = verification
+    if milestone is not None:
+        fm["milestone"] = milestone
+
+    if append_content:
+        new_content = f"{plan.content}\n\n{append_content}".strip()
+    elif content is not None:
+        new_content = content
+    else:
+        new_content = plan.content
+
+    write_markdown(fp, fm, new_content)
+    return f"Updated **{fm['id']}** — {fm['title']}"
+
+
+@mcp.tool()
+def plan_verify(project_id: str, plan_id: str) -> str:
+    """Return a plan's verification criteria as a checklist for review."""
+    project_root = resolve_project(project_id)
+    fp = find_plan_file(project_root, plan_id)
+    if not fp:
+        return f"Plan {plan_id} not found."
+    plan = read_markdown(fp)
+    fm = plan.frontmatter
+    verification = fm.get("verification", [])
+    if not verification:
+        return f"Plan **{fm['id']}** has no verification criteria defined."
+    lines = [f"## Verification — {fm['id']} — {fm['title']}\n"]
+    for i, v in enumerate(verification, 1):
+        lines.append(f"- [ ] {i}. {v}")
+    return "\n".join(lines)
+
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
+from .hier_config import (
+    resolve_config_chain,
+    resolved_settings,
+    set_value as _hc_set_value,
+    find_setting_origin,
+    get_config_tree,
+)
+
+
+@mcp.tool()
+def config_get(project_id: str | None = None, path: str | None = None) -> str:
+    """Show resolved settings for a project path, with inheritance visible.
+    Pass either a registered project_id or a filesystem path."""
+    if project_id:
+        path = resolve_project(project_id)
+    if not path:
+        registered = list_registered()
+        if registered:
+            path = registered[0]["path"]
+        else:
+            return "No project registered and no path provided."
+
+    chain = resolve_config_chain(path)
+    merged = {}
+    lines = ["## Config Resolution\n"]
+    for level_name, settings_path, settings in chain:
+        lines.append(f"**{level_name}** `{settings_path}`")
+        if settings:
+            import json
+            lines.append(f"```json\n{json.dumps(settings, indent=2)}\n```")
+        else:
+            lines.append("_(empty)_")
+        from .hier_config import deep_merge
+        merged = deep_merge(merged, settings)
+
+    lines.append("\n**Resolved (merged):**")
+    import json
+    lines.append(f"```json\n{json.dumps(merged, indent=2)}\n```")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def config_set(
+    key: str,
+    value: str,
+    level: str = "project",
+    project_id: str | None = None,
+    path: str | None = None,
+) -> str:
+    """Set a config value at a specific level (global, org, repo, project).
+    Key supports dot notation: 'wrike.enabled'. Value is JSON-parsed if possible."""
+    if project_id:
+        path = resolve_project(project_id)
+    if not path:
+        registered = list_registered()
+        if registered:
+            path = registered[0]["path"]
+        else:
+            return "No project registered and no path provided."
+
+    # Parse value as JSON if possible
+    import json
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        parsed = value
+
+    pid = None
+    if project_id:
+        pid = project_id
+    else:
+        cfg = load_config(path)
+        if cfg:
+            pid = cfg.id
+
+    sp = _hc_set_value(path, key, parsed, level=level, project_id=pid)
+    return f"Set `{key}` = `{parsed}` at **{level}** level\nFile: `{sp}`"
+
+
+@mcp.tool()
+def config_tree() -> str:
+    """Show the entire ~/.config/ike/ settings tree."""
+    tree = get_config_tree()
+    if not tree:
+        return "No config tree found at ~/.config/ike/"
+    import json
+    return f"## Config Tree\n\n```json\n{json.dumps(tree, indent=2)}\n```"
+
+
+@mcp.tool()
+def config_where(key: str, project_id: str | None = None, path: str | None = None) -> str:
+    """Show which level set a specific config key. Key supports dot notation."""
+    if project_id:
+        path = resolve_project(project_id)
+    if not path:
+        registered = list_registered()
+        if registered:
+            path = registered[0]["path"]
+        else:
+            return "No project registered and no path provided."
+
+    pid = None
+    if project_id:
+        pid = project_id
+    else:
+        cfg = load_config(path)
+        if cfg:
+            pid = cfg.id
+
+    result = find_setting_origin(key, path, project_id=pid)
+    if result:
+        level_name, val = result
+        return f"`{key}` = `{val}` — set at **{level_name}** level"
+    return f"`{key}` is not set at any level."
+
+
+# ── Bookmark ──────────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def bookmark(project_id: str, note: str) -> str:
+    """Bookmark the current state of a project with a note.
+    Saves a timestamped checkpoint locally. If Wrike sync is enabled,
+    pushes the note as a comment on the linked Wrike task."""
+    from datetime import datetime
+
+    project_root = resolve_project(project_id)
+    config = load_config(project_root)
+    project_name = config.project if config else "unknown"
+
+    # Save locally
+    ike_dir = os.path.join(project_root, IKE_DIR)
+    bookmarks_file = os.path.join(ike_dir, "bookmarks.md")
+    timestamp = datetime.now().isoformat()
+    entry = f"\n## {timestamp}\n\n{note}\n"
+
+    with open(bookmarks_file, "a") as f:
+        f.write(entry)
+
+    # Wrike hook (optional)
+    settings = resolved_settings(project_root, project_id=project_id)
+    wrike_cfg = settings.get("wrike", {})
+    wrike_result = ""
+
+    if wrike_cfg.get("enabled") and wrike_cfg.get("task_id"):
+        try:
+            from .hooks.wrike_hook import get_hook
+            hook = get_hook(settings)
+            if hook:
+                hook.on_bookmark(wrike_cfg["task_id"], f"[ike checkpoint] {project_name}\n\n{note}")
+                wrike_result = "\nWrike comment posted."
+        except Exception as e:
+            wrike_result = f"\nWrike hook failed: {e}"
+
+    return f"Bookmarked at {timestamp}{wrike_result}"
 
 
 def main():

@@ -26,9 +26,16 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
 ]
+wrike = [
+    "httpx>=0.27.0",
+]
+daemon = [
+    "claude-session-commons>=0.1.0",
+]
 
 [project.scripts]
 ike-md = "ike_md.server:main"
+ike-daemon = "ike_md.daemon:main"
 
 [project.entry-points."mcp"]
 ike-md = "ike_md.server:mcp"

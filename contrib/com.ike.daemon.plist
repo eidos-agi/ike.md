@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ike.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Adjust this path to your Python environment -->
+        <string>/usr/local/bin/ike-daemon</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/ike-daemon.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/ike-daemon.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Restart if it crashes, with a 10-second throttle -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>

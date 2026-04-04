@@ -1,8 +1,11 @@
 """Markdown file I/O, ID generation, task/milestone/document/graph operations."""
 
+import json
 import os
 import re
+import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 import yaml
@@ -343,3 +346,102 @@ def find_graph_node_file(project_root: str, node_id: str) -> str | None:
             except Exception:
                 pass
     return None
+
+
+# ── Plans ─────────────────────────────────────────────────────────────────────
+
+def _plan_dir(project_root: str) -> str:
+    d = safe_path(project_root, IKE_DIR, DIRECTORIES["PLANS"])
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def list_plans(project_root: str) -> list[ParsedFile]:
+    d = _plan_dir(project_root)
+    if not os.path.exists(d):
+        return []
+    return [
+        read_markdown(os.path.join(d, f))
+        for f in sorted(os.listdir(d))
+        if f.endswith(".md")
+    ]
+
+
+def next_plan_id(project_root: str) -> str:
+    existing = [p.frontmatter["id"] for p in list_plans(project_root)]
+    return _next_id("PLAN", existing)
+
+
+def plan_path(project_root: str, id: str, title: str) -> str:
+    slug = _slugify(title)
+    return safe_path(project_root, IKE_DIR, DIRECTORIES["PLANS"], f"{id} - {slug}.md")
+
+
+def find_plan_file(project_root: str, id: str) -> str | None:
+    d = _plan_dir(project_root)
+    if not os.path.exists(d):
+        return None
+    for f in os.listdir(d):
+        if f.startswith(id):
+            return os.path.join(d, f)
+    return None
+
+
+# ── Sessions ─────────────────────────────────────────────────────────────────
+
+def load_sessions(project_root: str) -> dict:
+    """Read .ike/sessions.json. Return {"sessions": []} if missing."""
+    path = safe_path(project_root, IKE_DIR, "sessions.json")
+    if not os.path.exists(path):
+        return {"sessions": []}
+    with open(path) as f:
+        return json.load(f)
+
+
+def save_sessions(project_root: str, data: dict) -> None:
+    """Atomic write (tmp + os.replace) to .ike/sessions.json."""
+    ike_dir = safe_path(project_root, IKE_DIR)
+    os.makedirs(ike_dir, exist_ok=True)
+    target = safe_path(project_root, IKE_DIR, "sessions.json")
+    fd, tmp_path = tempfile.mkstemp(dir=ike_dir, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        os.replace(tmp_path, target)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
+
+def add_session(project_root: str, session_id: str, jsonl_path: str, project_id: str) -> bool:
+    """Add new session entry. Returns False if already exists (dedup by session_id)."""
+    data = load_sessions(project_root)
+    for s in data["sessions"]:
+        if s["id"] == session_id:
+            return False
+    now = datetime.now(timezone.utc).isoformat()
+    data["sessions"].append({
+        "id": session_id,
+        "first_seen": now,
+        "last_activity": now,
+        "status": "active",
+        "jsonl": jsonl_path,
+        "project_id": project_id,
+        "events": [],
+    })
+    save_sessions(project_root, data)
+    return True
+
+
+def add_session_event(project_root: str, session_id: str, event: dict) -> bool:
+    """Append event to session's events list. Also update last_activity. Returns False if session not found."""
+    data = load_sessions(project_root)
+    for s in data["sessions"]:
+        if s["id"] == session_id:
+            s["events"].append(event)
+            s["last_activity"] = datetime.now(timezone.utc).isoformat()
+            save_sessions(project_root, data)
+            return True
+    return False
