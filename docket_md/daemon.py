@@ -1,7 +1,7 @@
-"""ike-daemon — queue-driven watcher for Claude Code session JSONL files.
+"""docket-daemon — queue-driven watcher for Claude Code session JSONL files.
 
 Instead of scanning all JONLs globally, the daemon reads jobs from a queue file
-populated by a Claude Code SessionStart hook.  Only sessions in Ike-managed
+populated by a Claude Code SessionStart hook.  Only sessions in docket-managed
 projects are watched.
 """
 
@@ -16,15 +16,15 @@ from logging.handlers import RotatingFileHandler
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-CONFIG_DIR = os.path.expanduser("~/.config/ike")
+CONFIG_DIR = os.path.expanduser("~/.config/docket")
 STATE_FILE = os.path.join(CONFIG_DIR, "daemon-state.json")
-PID_FILE = os.path.join(CONFIG_DIR, "ike-daemon.pid")
-LOG_FILE = os.path.join(CONFIG_DIR, "ike-daemon.log")
+PID_FILE = os.path.join(CONFIG_DIR, "docket-daemon.pid")
+LOG_FILE = os.path.join(CONFIG_DIR, "docket-daemon.log")
 QUEUE_FILE = os.path.join(CONFIG_DIR, "daemon-queue.jsonl")
 SETTINGS_FILE = os.path.expanduser("~/.claude/settings.json")
 POLL_INTERVAL = 30  # seconds
 
-logger = logging.getLogger("ike-daemon")
+logger = logging.getLogger("docket-daemon")
 
 # ── Graceful import of session helpers ───────────────────────────────────────
 
@@ -43,7 +43,7 @@ _shutdown = False
 
 
 def load_state() -> dict:
-    """Load daemon state from ~/.config/ike/daemon-state.json."""
+    """Load daemon state from ~/.config/docket/daemon-state.json."""
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE) as f:
@@ -127,11 +127,11 @@ def _extract_title(plan_content: str) -> str:
 
 
 def _ingest_plan(project_root: str, approval: dict) -> str | None:
-    """Create a plan file in .ike/plans/ from an approval event.
+    """Create a plan file in .docket/plans/ from an approval event.
 
     Returns the plan ID if created, None if duplicate.
     """
-    from .config import DIRECTORIES, IKE_DIR
+    from .config import DIRECTORIES, DOCKET_DIR
     from .files import (
         _next_id,
         _slugify,
@@ -155,7 +155,7 @@ def _ingest_plan(project_root: str, approval: dict) -> str | None:
     plan_id = _next_id("PLAN", existing_ids)
 
     slug = _slugify(title)
-    file_path = safe_path(project_root, IKE_DIR, DIRECTORIES["PLANS"], f"{plan_id} - {slug}.md")
+    file_path = safe_path(project_root, DOCKET_DIR, DIRECTORIES["PLANS"], f"{plan_id} - {slug}.md")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     frontmatter = {
@@ -177,7 +177,7 @@ def _ingest_plan(project_root: str, approval: dict) -> str | None:
         body_lines.append(line)
     body = "\n".join(body_lines).strip()
 
-    # Ensure .ike/plans/ exists
+    # Ensure .docket/plans/ exists
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     write_markdown(file_path, frontmatter, body)
 
@@ -203,10 +203,10 @@ def install() -> None:
 
     hook_command = (
         "jq -c '{type:\"watch_session\",session_id:.session_id,"
-        "jsonl:.transcript_path,cwd:.cwd}' >> ~/.config/ike/daemon-queue.jsonl"
+        "jsonl:.transcript_path,cwd:.cwd}' >> ~/.config/docket/daemon-queue.jsonl"
     )
 
-    ike_hook = {
+    docket_hook = {
         "type": "command",
         "command": hook_command,
         "timeout": 5,
@@ -214,18 +214,18 @@ def install() -> None:
 
     session_start_hooks = settings["hooks"].get("SessionStart", [])
 
-    # Check if ike hook already exists (avoid duplicates)
+    # Check if docket hook already exists (avoid duplicates)
     for entry in session_start_hooks:
         hooks_list = entry.get("hooks", [])
         for h in hooks_list:
             if "daemon-queue.jsonl" in h.get("command", ""):
-                print("ike SessionStart hook already installed.")
+                print("docket SessionStart hook already installed.")
                 return
 
-    # Add the ike hook entry
+    # Add the docket hook entry
     session_start_hooks.append({
         "matcher": "",
-        "hooks": [ike_hook],
+        "hooks": [docket_hook],
     })
     settings["hooks"]["SessionStart"] = session_start_hooks
 
@@ -277,23 +277,23 @@ def process_queue(state: dict) -> dict:
             logger.warning("Incomplete job, skipping: %s", line[:80])
             continue
 
-        # Check if cwd has .ike/ike.json (skip if not an Ike project)
-        ike_json_path = os.path.join(cwd, ".ike", "ike.json")
-        if not os.path.exists(ike_json_path):
-            logger.debug("No .ike/ike.json in %s, skipping", cwd)
+        # Check if cwd has .docket/docket.json (skip if not an docket project)
+        docket_json_path = os.path.join(cwd, ".docket", "docket.json")
+        if not os.path.exists(docket_json_path):
+            logger.debug("No .docket/docket.json in %s, skipping", cwd)
             continue
 
         # Load project config to get project_id and name
         try:
-            with open(ike_json_path) as f:
-                ike_config = json.load(f)
-            project_id = ike_config.get("id", "unknown")
-            project_name = ike_config.get("project", os.path.basename(cwd))
+            with open(docket_json_path) as f:
+                docket_config = json.load(f)
+            project_id = docket_config.get("id", "unknown")
+            project_name = docket_config.get("project", os.path.basename(cwd))
         except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Failed to read ike.json in %s: %s", cwd, e)
+            logger.warning("Failed to read docket.json in %s: %s", cwd, e)
             continue
 
-        # Register session in .ike/sessions.json
+        # Register session in .docket/sessions.json
         if HAS_SESSION_HELPERS and add_session is not None:
             try:
                 add_session(cwd, session_id, jsonl, project_id)
@@ -381,10 +381,10 @@ def watch_files(state: dict) -> dict:
             if dedup_key in ingested:
                 continue
 
-            # Check .ike exists in project
-            ike_dir = os.path.join(project_root, ".ike")
-            if not os.path.isdir(ike_dir):
-                logger.debug("No .ike directory in %s, skipping", project_root)
+            # Check .docket exists in project
+            docket_dir = os.path.join(project_root, ".docket")
+            if not os.path.isdir(docket_dir):
+                logger.debug("No .docket directory in %s, skipping", project_root)
                 continue
 
             plan_id = _ingest_plan(project_root, approval)
@@ -473,7 +473,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
-    logger.info("ike-daemon started (pid=%d, poll=%ds)", os.getpid(), POLL_INTERVAL)
+    logger.info("docket-daemon started (pid=%d, poll=%ds)", os.getpid(), POLL_INTERVAL)
 
     state = load_state()
 
@@ -487,7 +487,7 @@ def main() -> None:
                 logger.exception("Error during poll cycle")
             time.sleep(POLL_INTERVAL)
     finally:
-        logger.info("ike-daemon shutting down")
+        logger.info("docket-daemon shutting down")
         try:
             os.remove(PID_FILE)
         except OSError:

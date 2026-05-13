@@ -1,8 +1,8 @@
 # Trilogy Conventions
 
-> Shared standards for **ike.md**, **visionlog.md**, and **research.md**.
+> Shared standards for **docket.md**, **visionlog.md**, and **research.md**.
 >
-> ike.md is the reference implementation. The other two implement against this document.
+> docket.md is the reference implementation. The other two implement against this document.
 
 ---
 
@@ -12,7 +12,7 @@ Each tool stores its state in a dot-prefixed directory at the project root:
 
 | Tool | Directory | Config file |
 |------|-----------|-------------|
-| ike.md | `.ike/` | `.ike/ike.json` |
+| docket.md | `.docket/` | `.docket/docket.json` |
 | visionlog.md | `.visionlog/` | `.visionlog/config.yaml` |
 | research.md | `.research/` | `.research/research.json` |
 
@@ -32,10 +32,10 @@ In a monorepo, each sub-package that needs its own trilogy state initializes ind
 my-monorepo/
 ├── packages/
 │   ├── api/
-│   │   ├── .ike/          ← api's tasks
+│   │   ├── .docket/          ← api's tasks
 │   │   └── .visionlog/    ← api's decisions
 │   └── web/
-│       ├── .ike/          ← web's tasks
+│       ├── .docket/          ← web's tasks
 │       └── .visionlog/    ← web's decisions
 ```
 

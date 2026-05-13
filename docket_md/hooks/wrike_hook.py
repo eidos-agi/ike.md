@@ -1,10 +1,10 @@
-"""Optional Wrike sync hook for ike.md.
+"""Optional Wrike sync hook for docket.md.
 
 Fires on project_set (find/create Wrike task), bookmark (add comment),
 and task_complete (mark Wrike task done). Uses Wrike REST API directly
-with WRIKE_ACCESS_TOKEN from environment. No dependency on wrike-mcp.
+with WRDOCKET_ACCESS_TOKEN from environment. No dependency on wrike-mcp.
 
-Graceful degradation: if httpx is not installed, WRIKE_ACCESS_TOKEN is
+Graceful degradation: if httpx is not installed, WRDOCKET_ACCESS_TOKEN is
 not set, or wrike.enabled is false — returns None and does nothing.
 """
 
@@ -14,11 +14,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-WRIKE_API = "https://www.wrike.com/api/v4"
+WRDOCKET_API = "https://www.wrike.com/api/v4"
 
 
 class WrikeHook:
-    """Thin Wrike API wrapper for ike.md hook events."""
+    """Thin Wrike API wrapper for docket.md hook events."""
 
     def __init__(self, access_token: str):
         self._token = access_token
@@ -26,7 +26,7 @@ class WrikeHook:
             import httpx
             self._http = httpx.Client(timeout=15)
         except ImportError:
-            raise ImportError("httpx is required for Wrike hook. Install with: pip install httpx")
+            raise ImportError("httpx is required for Wrdocket hook. Install with: pip install httpx")
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -35,17 +35,17 @@ class WrikeHook:
         }
 
     def _get(self, path: str, params: dict | None = None) -> Any:
-        resp = self._http.get(f"{WRIKE_API}{path}", headers=self._headers(), params=params)
+        resp = self._http.get(f"{WRDOCKET_API}{path}", headers=self._headers(), params=params)
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, path: str, data: dict | None = None) -> Any:
-        resp = self._http.post(f"{WRIKE_API}{path}", headers=self._headers(), json=data)
+        resp = self._http.post(f"{WRDOCKET_API}{path}", headers=self._headers(), json=data)
         resp.raise_for_status()
         return resp.json()
 
     def _put(self, path: str, data: dict | None = None) -> Any:
-        resp = self._http.put(f"{WRIKE_API}{path}", headers=self._headers(), json=data)
+        resp = self._http.put(f"{WRDOCKET_API}{path}", headers=self._headers(), json=data)
         resp.raise_for_status()
         return resp.json()
 
@@ -78,8 +78,8 @@ class WrikeHook:
             result = self._post(
                 f"/folders/{folder_id}/tasks",
                 data={
-                    "title": f"[ike] {project_name}",
-                    "description": f"Tracked by ike.md. Source: local project.",
+                    "title": f"[docket] {project_name}",
+                    "description": f"Tracked by docket.md. Source: local project.",
                     "status": "Active",
                 },
             )
@@ -117,20 +117,20 @@ class WrikeHook:
 
 
 def get_hook(settings: dict) -> WrikeHook | None:
-    """Return a WrikeHook if wrike.enabled=true and WRIKE_ACCESS_TOKEN is set.
+    """Return a WrikeHook if wrike.enabled=true and WRDOCKET_ACCESS_TOKEN is set.
     Returns None (silently) if conditions aren't met.
     """
     wrike_cfg = settings.get("wrike", {})
     if not wrike_cfg.get("enabled"):
         return None
 
-    token = os.getenv("WRIKE_ACCESS_TOKEN")
+    token = os.getenv("WRDOCKET_ACCESS_TOKEN")
     if not token:
-        logger.debug("wrike.enabled=true but WRIKE_ACCESS_TOKEN not set — skipping hook")
+        logger.debug("wrike.enabled=true but WRDOCKET_ACCESS_TOKEN not set — skipping hook")
         return None
 
     try:
         return WrikeHook(token)
     except ImportError:
-        logger.debug("httpx not installed — Wrike hook disabled")
+        logger.debug("httpx not installed — Wrdocket hook disabled")
         return None

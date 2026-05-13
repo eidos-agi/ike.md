@@ -5,7 +5,7 @@ import os
 import pytest
 from unittest.mock import patch
 
-from ike_md.hier_config import (
+from docket_md.hier_config import (
     deep_merge,
     parse_git_remote,
     read_settings,
@@ -15,7 +15,7 @@ from ike_md.hier_config import (
     set_value,
     find_setting_origin,
     get_config_tree,
-    IKE_CONFIG_ROOT,
+    DOCKET_CONFIG_ROOT,
 )
 
 
@@ -100,8 +100,8 @@ class TestSettingsIO:
 
 class TestResolveConfigChain:
     def test_full_chain(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
         # Create settings at each level
         global_s = {"theme": "dark"}
@@ -121,7 +121,7 @@ class TestResolveConfigChain:
         proj_dir = os.path.join(repo_dir, "projects", "uuid-123")
         write_settings(os.path.join(proj_dir, "settings.json"), proj_s)
 
-        with patch("ike_md.hier_config.detect_org_repo", return_value=("testorg", "testrepo")):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=("testorg", "testrepo")):
             chain = resolve_config_chain("/fake/path", project_id="uuid-123")
 
         assert len(chain) == 4
@@ -131,7 +131,7 @@ class TestResolveConfigChain:
         assert chain[3][0] == "project"
 
         # Verify merged settings
-        with patch("ike_md.hier_config.detect_org_repo", return_value=("testorg", "testrepo")):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=("testorg", "testrepo")):
             merged = resolved_settings("/fake/path", project_id="uuid-123")
 
         assert merged["theme"] == "dark"
@@ -140,26 +140,26 @@ class TestResolveConfigChain:
         assert merged["custom"] == "value"
 
     def test_missing_levels(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
         # Only global exists
         os.makedirs(config_root, exist_ok=True)
         write_settings(os.path.join(config_root, "settings.json"), {"theme": "light"})
 
-        with patch("ike_md.hier_config.detect_org_repo", return_value=("myorg", "myrepo")):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=("myorg", "myrepo")):
             merged = resolved_settings("/fake/path", project_id="uuid-456")
 
         assert merged == {"theme": "light"}
 
     def test_no_git_remote(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
         os.makedirs(config_root, exist_ok=True)
         write_settings(os.path.join(config_root, "settings.json"), {"a": 1})
 
-        with patch("ike_md.hier_config.detect_org_repo", return_value=(None, None)):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=(None, None)):
             chain = resolve_config_chain("/fake/path", project_id="uuid-789")
 
         # Only global level
@@ -173,18 +173,18 @@ class TestResolveConfigChain:
 
 class TestSetValue:
     def test_set_dotted_key(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
-        with patch("ike_md.hier_config.detect_org_repo", return_value=("org1", "repo1")):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=("org1", "repo1")):
             sp = set_value("/fake", "wrike.enabled", True, level="org")
 
         data = read_settings(sp)
         assert data["wrike"]["enabled"] is True
 
     def test_set_global(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
         sp = set_value("/fake", "theme", "dark", level="global")
         data = read_settings(sp)
@@ -197,8 +197,8 @@ class TestSetValue:
 
 class TestFindSettingOrigin:
     def test_finds_deepest_level(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
         os.makedirs(config_root, exist_ok=True)
         write_settings(os.path.join(config_root, "settings.json"), {"wrike": {"enabled": True}})
@@ -206,17 +206,17 @@ class TestFindSettingOrigin:
         org_dir = os.path.join(config_root, "orgs", "org1")
         write_settings(os.path.join(org_dir, "settings.json"), {"wrike": {"enabled": False}})
 
-        with patch("ike_md.hier_config.detect_org_repo", return_value=("org1", "repo1")):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=("org1", "repo1")):
             result = find_setting_origin("wrike.enabled", "/fake", project_id="uuid-1")
 
         assert result == ("org", False)
 
     def test_not_found(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
         os.makedirs(config_root, exist_ok=True)
 
-        with patch("ike_md.hier_config.detect_org_repo", return_value=(None, None)):
+        with patch("docket_md.hier_config.detect_org_repo", return_value=(None, None)):
             result = find_setting_origin("nonexistent.key", "/fake")
 
         assert result is None
@@ -228,12 +228,12 @@ class TestFindSettingOrigin:
 
 class TestGetConfigTree:
     def test_empty(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", str(tmp_path / "empty"))
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", str(tmp_path / "empty"))
         assert get_config_tree() == {}
 
     def test_populated(self, tmp_path, monkeypatch):
-        config_root = str(tmp_path / "config" / "ike")
-        monkeypatch.setattr("ike_md.hier_config.IKE_CONFIG_ROOT", config_root)
+        config_root = str(tmp_path / "config" / "docket")
+        monkeypatch.setattr("docket_md.hier_config.DOCKET_CONFIG_ROOT", config_root)
 
         write_settings(os.path.join(config_root, "settings.json"), {"g": 1})
         org_dir = os.path.join(config_root, "orgs", "org1")

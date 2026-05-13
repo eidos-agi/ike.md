@@ -1,4 +1,4 @@
-"""ike.md MCP server — all 21 tools."""
+"""docket.md MCP server — all 21 tools."""
 
 import os
 from datetime import date
@@ -38,11 +38,11 @@ from .files import (
     find_plan_file,
 )
 from .security import safe_path
-from .config import IKE_DIR, DIRECTORIES
+from .config import DOCKET_DIR, DIRECTORIES
 
-INSTRUCTIONS = """ike.md is the execution forge — tasks, milestones, documents, Definition of Done. This is where work gets done.
+INSTRUCTIONS = """docket.md is the execution forge — tasks, milestones, documents, Definition of Done. This is where work gets done.
 
-Named for Eisenhower — the man who planned D-Day and then ran the free world. Ike didn't just plan. He executed at scale, across many agents, under time pressure, with contracts that had to be honored.
+Named for a court's docket: the queue of cases ready for resolution. Planning happens elsewhere; the docket is where work gets scheduled, dispatched, and closed. (Previously codenamed `ike`, after Eisenhower — same discipline, different metaphor.)
 
 READ visionlog at the start of every session before touching anything. visionlog is the static St. Peter: it tells you where the ladder points, what the project has committed to, and what guardrails you must not cross. If a task would violate a visionlog guardrail, St. Peter has already told you no — adjust before you start.
 
@@ -51,11 +51,11 @@ Before making a consequential decision that spawns tasks, use research.md to ear
 The trilogy:
 - research.md: decide with evidence
 - visionlog: record vision, goals, guardrails, SOPs, ADRs — the contracts all execution must honor
-- ike.md: execute within those contracts — this is where you are now
+- docket.md: execute within those contracts — this is where you are now
 
 GUID workflow: Call project_set with the project path to register it and get its project_id. Pass that project_id to every subsequent tool call. For a new project, call project_init first."""
 
-mcp = FastMCP("ike.md", instructions=INSTRUCTIONS)
+mcp = FastMCP("docket.md", instructions=INSTRUCTIONS)
 
 
 def _today() -> str:
@@ -105,7 +105,7 @@ def _format_task(fm: dict, content: str) -> str:
 
 @mcp.tool()
 def project_init(path: str, name: str | None = None) -> str:
-    """Initialize a new ike.md project in a directory. Creates the .ike/ folder structure and ike.json with a stable GUID. Returns the project_id for use in all subsequent calls."""
+    """Initialize a new docket.md project in a directory. Creates the .docket/ folder structure and docket.json with a stable GUID. Returns the project_id for use in all subsequent calls."""
     config = init_project(path, name)
     # Register it for this session
     try:
@@ -117,7 +117,7 @@ def project_init(path: str, name: str | None = None) -> str:
 
 @mcp.tool()
 def project_set(path: str) -> str:
-    """Register an existing ike.md project for this session. Call this at session start. Returns the project_id (GUID) to use in all subsequent calls."""
+    """Register an existing docket.md project for this session. Call this at session start. Returns the project_id (GUID) to use in all subsequent calls."""
     result = register_project(path)
     return f"Project registered: **{result['project']}**\nproject_id: `{result['id']}`\n\nUse this project_id in all subsequent calls."
 
@@ -347,7 +347,7 @@ def task_archive(project_id: str, task_id: str, reason: str | None = None) -> st
     task = read_markdown(fp)
     fm = {**task.frontmatter, "updated": _today()}
     content = f"{task.content}\n\n**Archived:** {reason}".strip() if reason else task.content
-    archive_path = safe_path(project_root, IKE_DIR, DIRECTORIES["ARCHIVE"], os.path.basename(fp))
+    archive_path = safe_path(project_root, DOCKET_DIR, DIRECTORIES["ARCHIVE"], os.path.basename(fp))
     write_markdown(archive_path, fm, content)
     os.unlink(fp)
     return f"Archived **{fm['id']}** — {fm['title']}"
@@ -1007,10 +1007,10 @@ def config_set(
 
 @mcp.tool()
 def config_tree() -> str:
-    """Show the entire ~/.config/ike/ settings tree."""
+    """Show the entire ~/.config/docket/ settings tree."""
     tree = get_config_tree()
     if not tree:
-        return "No config tree found at ~/.config/ike/"
+        return "No config tree found at ~/.config/docket/"
     import json
     return f"## Config Tree\n\n```json\n{json.dumps(tree, indent=2)}\n```"
 
@@ -1057,15 +1057,15 @@ def bookmark(project_id: str, note: str) -> str:
     project_name = config.project if config else "unknown"
 
     # Save locally
-    ike_dir = os.path.join(project_root, IKE_DIR)
-    bookmarks_file = os.path.join(ike_dir, "bookmarks.md")
+    docket_dir = os.path.join(project_root, DOCKET_DIR)
+    bookmarks_file = os.path.join(docket_dir, "bookmarks.md")
     timestamp = datetime.now().isoformat()
     entry = f"\n## {timestamp}\n\n{note}\n"
 
     with open(bookmarks_file, "a") as f:
         f.write(entry)
 
-    # Wrike hook (optional)
+    # Wrdocket hook (optional)
     settings = resolved_settings(project_root, project_id=project_id)
     wrike_cfg = settings.get("wrike", {})
     wrike_result = ""
@@ -1078,7 +1078,7 @@ def bookmark(project_id: str, note: str) -> str:
                 hook.on_bookmark(wrike_cfg["task_id"], f"[ike checkpoint] {project_name}\n\n{note}")
                 wrike_result = "\nWrike comment posted."
         except Exception as e:
-            wrike_result = f"\nWrike hook failed: {e}"
+            wrike_result = f"\nWrdocket hook failed: {e}"
 
     return f"Bookmarked at {timestamp}{wrike_result}"
 

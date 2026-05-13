@@ -1,4 +1,4 @@
-# RFC-001: Session-Aware ike-daemon
+# RFC-001: Session-Aware docket-daemon
 
 ## Core Primitives
 
@@ -26,7 +26,7 @@ This is why both sides use queues with exponential backoff.
 
 ### MCP server side
 
-When `project_set` or `project_init` is called, it appends to `~/.config/ike/daemon-queue.jsonl`:
+When `project_set` or `project_init` is called, it appends to `~/.config/docket/daemon-queue.jsonl`:
 
 ```json
 {"type": "link_project", "project_id": "25eb3f59-...", "project_path": "/repos/cockpit-eidos", "queued_at": "2026-03-26T00:01:00Z"}
@@ -50,7 +50,7 @@ If never found after max retries: log a warning, drop the job. The JSONL was eit
 
 ## The Hook
 
-Installed by `ike-daemon install` into `~/.claude/settings.json`:
+Installed by `docket-daemon install` into `~/.claude/settings.json`:
 
 ```json
 {
@@ -58,7 +58,7 @@ Installed by `ike-daemon install` into `~/.claude/settings.json`:
     "matcher": "",
     "hooks": [{
       "type": "command",
-      "command": "jq -c '{type:\"watch_session\",session_id:.session_id,jsonl:.transcript_path,cwd:.cwd}' >> ~/.config/ike/daemon-queue.jsonl",
+      "command": "jq -c '{type:\"watch_session\",session_id:.session_id,jsonl:.transcript_path,cwd:.cwd}' >> ~/.config/docket/daemon-queue.jsonl",
       "timeout": 5
     }]
   }]
@@ -79,7 +79,7 @@ SESSION START
 │
 │  ... session runs, agent works ...
 │
-├─ Agent calls ike.project_set(path) or ike.project_init(path)
+├─ Agent calls docket.project_set(path) or docket.project_init(path)
 │   ├─ MCP server registers/creates project (normal behavior)
 │   └─ MCP server → queue: {type: "link_project", project_id, project_path}
 │
@@ -96,7 +96,7 @@ SESSION START
 │   ├─ Daemon reads new bytes (already watching this JSONL via hot list)
 │   ├─ Detects plan approval event
 │   ├─ Looks up session_id in LINK LIST → finds project_id(s)
-│   └─ Routes plan to each linked project's .ike/plans/
+│   └─ Routes plan to each linked project's .docket/plans/
 │
 └─ SESSION ENDS
     └─ JSONL stops growing → TTL clock starts
@@ -120,7 +120,7 @@ When an event is detected in that session's JSONL:
 - For plan approvals: the plan content may reference a specific project. Use the most recently linked project as default, with content-based override if possible.
 - For `task_complete` calls: the project_id is in the tool arguments. Route directly.
 
-## .ike/sessions.json (per project)
+## .docket/sessions.json (per project)
 
 Each project gets a view of the sessions that touched it:
 
@@ -173,15 +173,15 @@ Three sections:
 ## CLI
 
 ```
-ike-daemon install     Add SessionStart hook to ~/.claude/settings.json
-ike-daemon start       Start the polling loop
-ike-daemon status      Show hot list, link list, pending links
-ike-daemon stop        Stop the daemon
+docket-daemon install     Add SessionStart hook to ~/.claude/settings.json
+docket-daemon start       Start the polling loop
+docket-daemon status      Show hot list, link list, pending links
+docket-daemon stop        Stop the daemon
 ```
 
 ## Queue File
 
-`~/.config/ike/daemon-queue.jsonl` — append-only, three producers (hook, project_set, project_init):
+`~/.config/docket/daemon-queue.jsonl` — append-only, three producers (hook, project_set, project_init):
 
 ```jsonl
 {"type":"watch_session","session_id":"02561bc3-...","jsonl":"/path/to/session.jsonl","cwd":"/Users/..."}
@@ -196,11 +196,11 @@ The daemon reads new bytes from each hot list JSONL on every poll cycle (30s). F
 
 1. **Is it a `project_set` or `project_init` call?** → Extract project_id from tool arguments. Check if this session already has this link. If not, add to link list. (This is the fast path — daemon sees it directly in the stream, no backoff needed. The queue+backoff is the fallback for when the JSONL hasn't flushed yet.)
 
-2. **Is it a plan approval?** → Look up this session's links. Route to the linked project(s). Create PLAN-XXXX in `.ike/plans/`, add event to `.ike/sessions.json`.
+2. **Is it a plan approval?** → Look up this session's links. Route to the linked project(s). Create PLAN-XXXX in `.docket/plans/`, add event to `.docket/sessions.json`.
 
-3. **Is it a `task_complete` call?** → Extract project_id from tool arguments. Route directly. Add event to `.ike/sessions.json`.
+3. **Is it a `task_complete` call?** → Extract project_id from tool arguments. Route directly. Add event to `.docket/sessions.json`.
 
-4. **Is it any other Ike tool call?** → Can be used to update `last_activity` on the session entry.
+4. **Is it any other docket tool call?** → Can be used to update `last_activity` on the session entry.
 
 Detection happens in the stream. Routing uses the link list. Both are in the same read loop.
 

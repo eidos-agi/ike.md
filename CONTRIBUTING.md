@@ -1,12 +1,12 @@
-# Contributing to ike
+# Contributing to docket
 
 Thanks for your interest in contributing.
 
 ## Quick start
 
 ```bash
-git clone https://github.com/eidos-agi/ike.md.git
-cd ike.md
+git clone https://github.com/eidos-agi/docket.md.git
+cd docket.md
 pip install -e ".[dev]"
 ```
 

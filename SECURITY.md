@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in ike, please report it responsibly.
+If you discover a security vulnerability in docket, please report it responsibly.
 
 **Email:** daniel@eidosagi.com
 

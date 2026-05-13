@@ -3,8 +3,8 @@
 import os
 import pytest
 
-from ike_md.config import init_project, register_project
-from ike_md.files import (
+from docket_md.config import init_project, register_project
+from docket_md.files import (
     list_plans,
     next_plan_id,
     plan_path,
@@ -12,7 +12,7 @@ from ike_md.files import (
     read_markdown,
     write_markdown,
 )
-from ike_md.server import (
+from docket_md.server import (
     plan_create,
     plan_list,
     plan_view,

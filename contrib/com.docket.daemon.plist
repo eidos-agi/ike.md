@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.ike.daemon</string>
+    <string>com.docket.daemon</string>
 
     <key>ProgramArguments</key>
     <array>
         <!-- Adjust this path to your Python environment -->
-        <string>/usr/local/bin/ike-daemon</string>
+        <string>/usr/local/bin/docket-daemon</string>
     </array>
 
     <key>RunAtLoad</key>
@@ -18,10 +18,10 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/tmp/ike-daemon.stdout.log</string>
+    <string>/tmp/docket-daemon.stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/ike-daemon.stderr.log</string>
+    <string>/tmp/docket-daemon.stderr.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

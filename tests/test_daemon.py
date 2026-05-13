@@ -1,4 +1,4 @@
-"""Tests for ike_md.daemon — plan approval detection, ingestion, install, queue, and watching."""
+"""Tests for docket_md.daemon — plan approval detection, ingestion, install, queue, and watching."""
 
 import json
 import os
@@ -6,7 +6,7 @@ import tempfile
 
 import pytest
 
-from ike_md.daemon import (
+from docket_md.daemon import (
     _extract_title,
     _ingest_plan,
     _is_plan_approval,
@@ -38,17 +38,17 @@ def _make_approval_entry(plan: str = "# My Plan\n\nDo the thing.", session_id: s
     }
 
 
-def _make_ike_project(tmpdir: str, project_name: str = "test-project") -> str:
-    """Set up a minimal .ike project in tmpdir, return project root."""
-    ike_dir = os.path.join(tmpdir, ".ike")
-    os.makedirs(os.path.join(ike_dir, "plans"), exist_ok=True)
-    with open(os.path.join(ike_dir, "ike.json"), "w") as f:
+def _make_docket_project(tmpdir: str, project_name: str = "test-project") -> str:
+    """Set up a minimal .docket project in tmpdir, return project root."""
+    docket_dir = os.path.join(tmpdir, ".docket")
+    os.makedirs(os.path.join(docket_dir, "plans"), exist_ok=True)
+    with open(os.path.join(docket_dir, "docket.json"), "w") as f:
         json.dump({
             "id": "test-guid-1234",
             "version": "0.1.0",
             "project": project_name,
             "created": "2026-01-01",
-            "ike_path": ".ike",
+            "docket_path": ".docket",
         }, f)
     return tmpdir
 
@@ -113,7 +113,7 @@ def test_extract_title_later_heading():
 
 def test_ingest_plan():
     with tempfile.TemporaryDirectory() as tmpdir:
-        project_root = _make_ike_project(tmpdir)
+        project_root = _make_docket_project(tmpdir)
         approval = {
             "plan_content": "# Widget Deploy\n\nStep 1: do it.",
             "plan_path": "/tmp/plan.md",
@@ -123,7 +123,7 @@ def test_ingest_plan():
         assert plan_id is not None
         assert plan_id.startswith("PLAN-")
 
-        plans_dir = os.path.join(project_root, ".ike", "plans")
+        plans_dir = os.path.join(project_root, ".docket", "plans")
         files = os.listdir(plans_dir)
         assert len(files) == 1
         assert files[0].startswith("PLAN-")
@@ -132,7 +132,7 @@ def test_ingest_plan():
 
 def test_deduplication():
     with tempfile.TemporaryDirectory() as tmpdir:
-        project_root = _make_ike_project(tmpdir)
+        project_root = _make_docket_project(tmpdir)
         approval = {
             "plan_content": "# Same Plan Title\n\nContent here.",
             "plan_path": "/tmp/plan.md",
@@ -144,7 +144,7 @@ def test_deduplication():
         second = _ingest_plan(project_root, approval)
         assert second is None
 
-        plans_dir = os.path.join(project_root, ".ike", "plans")
+        plans_dir = os.path.join(project_root, ".docket", "plans")
         files = [f for f in os.listdir(plans_dir) if f.endswith(".md")]
         assert len(files) == 1
 
@@ -154,7 +154,7 @@ def test_deduplication():
 def test_install_creates_hook(tmp_path, monkeypatch):
     """install() creates settings.json with the SessionStart hook."""
     settings_file = str(tmp_path / "settings.json")
-    monkeypatch.setattr("ike_md.daemon.SETTINGS_FILE", settings_file)
+    monkeypatch.setattr("docket_md.daemon.SETTINGS_FILE", settings_file)
 
     install()
 
@@ -169,7 +169,7 @@ def test_install_creates_hook(tmp_path, monkeypatch):
 def test_install_merges_existing(tmp_path, monkeypatch):
     """install() preserves existing hooks and doesn't duplicate."""
     settings_file = str(tmp_path / "settings.json")
-    monkeypatch.setattr("ike_md.daemon.SETTINGS_FILE", settings_file)
+    monkeypatch.setattr("docket_md.daemon.SETTINGS_FILE", settings_file)
 
     # Pre-existing settings with another hook
     existing = {
@@ -196,7 +196,7 @@ def test_install_merges_existing(tmp_path, monkeypatch):
     with open(settings_file) as f:
         settings = json.load(f)
 
-    # Original SessionStart hook preserved, ike hook added
+    # Original SessionStart hook preserved, docket hook added
     session_hooks = settings["hooks"]["SessionStart"]
     assert len(session_hooks) == 2
     assert settings["hooks"]["PostToolUse"]  # preserved
@@ -213,9 +213,9 @@ def test_install_merges_existing(tmp_path, monkeypatch):
 def test_process_queue(tmp_path, monkeypatch):
     """process_queue() picks up watch_session jobs and adds watches."""
     queue_file = str(tmp_path / "daemon-queue.jsonl")
-    monkeypatch.setattr("ike_md.daemon.QUEUE_FILE", queue_file)
+    monkeypatch.setattr("docket_md.daemon.QUEUE_FILE", queue_file)
 
-    project_root = _make_ike_project(str(tmp_path / "myproject"))
+    project_root = _make_docket_project(str(tmp_path / "myproject"))
 
     # Create a fake JSONL transcript file
     jsonl_path = str(tmp_path / "session.jsonl")
@@ -249,14 +249,14 @@ def test_process_queue(tmp_path, monkeypatch):
         assert f.read().strip() == ""
 
 
-def test_process_queue_skips_non_ike(tmp_path, monkeypatch):
-    """process_queue() skips projects without .ike/ike.json."""
+def test_process_queue_skips_non_docket(tmp_path, monkeypatch):
+    """process_queue() skips projects without .docket/docket.json."""
     queue_file = str(tmp_path / "daemon-queue.jsonl")
-    monkeypatch.setattr("ike_md.daemon.QUEUE_FILE", queue_file)
+    monkeypatch.setattr("docket_md.daemon.QUEUE_FILE", queue_file)
 
-    # Create a directory without .ike
-    non_ike_dir = str(tmp_path / "plain-project")
-    os.makedirs(non_ike_dir)
+    # Create a directory without .docket
+    non_docket_dir = str(tmp_path / "plain-project")
+    os.makedirs(non_docket_dir)
 
     jsonl_path = str(tmp_path / "session2.jsonl")
     with open(jsonl_path, "w") as f:
@@ -266,7 +266,7 @@ def test_process_queue_skips_non_ike(tmp_path, monkeypatch):
         "type": "watch_session",
         "session_id": "sess-xyz",
         "jsonl": jsonl_path,
-        "cwd": non_ike_dir,
+        "cwd": non_docket_dir,
     }
     with open(queue_file, "w") as f:
         f.write(json.dumps(job) + "\n")
@@ -283,7 +283,7 @@ def test_process_queue_skips_non_ike(tmp_path, monkeypatch):
 
 def test_watch_detects_approval(tmp_path, monkeypatch):
     """watch_files() detects a plan approval appended after the offset watermark."""
-    project_root = _make_ike_project(str(tmp_path / "proj"))
+    project_root = _make_docket_project(str(tmp_path / "proj"))
 
     jsonl_path = str(tmp_path / "transcript.jsonl")
 
@@ -315,12 +315,12 @@ def test_watch_detects_approval(tmp_path, monkeypatch):
         f.write(json.dumps(approval_entry) + "\n")
 
     # Monkeypatch add_session_event to avoid needing full sessions.json setup
-    monkeypatch.setattr("ike_md.daemon.HAS_SESSION_HELPERS", False)
+    monkeypatch.setattr("docket_md.daemon.HAS_SESSION_HELPERS", False)
 
     state = watch_files(state)
 
     # Plan should have been ingested
-    plans_dir = os.path.join(project_root, ".ike", "plans")
+    plans_dir = os.path.join(project_root, ".docket", "plans")
     plan_files = [f for f in os.listdir(plans_dir) if f.endswith(".md")]
     assert len(plan_files) == 1
     assert plan_files[0].startswith("PLAN-")

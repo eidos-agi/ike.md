@@ -1,9 +1,9 @@
-"""Tests for the optional Wrike hook."""
+"""Tests for the optional Wrdocket hook."""
 
 import os
 from unittest.mock import MagicMock, patch
 
-from ike_md.hooks.wrike_hook import WrikeHook, get_hook
+from docket_md.hooks.wrike_hook import WrikeHook, get_hook
 
 
 class TestGetHook:
@@ -12,11 +12,11 @@ class TestGetHook:
         assert get_hook({"wrike": {"enabled": False}}) is None
 
     def test_no_token_returns_none(self, monkeypatch):
-        monkeypatch.delenv("WRIKE_ACCESS_TOKEN", raising=False)
+        monkeypatch.delenv("WRDOCKET_ACCESS_TOKEN", raising=False)
         assert get_hook({"wrike": {"enabled": True}}) is None
 
     def test_enabled_with_token(self, monkeypatch):
-        monkeypatch.setenv("WRIKE_ACCESS_TOKEN", "test-token")
+        monkeypatch.setenv("WRDOCKET_ACCESS_TOKEN", "test-token")
         hook = get_hook({"wrike": {"enabled": True}})
         assert hook is not None
         assert isinstance(hook, WrikeHook)
@@ -24,7 +24,7 @@ class TestGetHook:
 
 class TestOnProjectSet:
     def test_finds_existing_task(self, monkeypatch):
-        monkeypatch.setenv("WRIKE_ACCESS_TOKEN", "test-token")
+        monkeypatch.setenv("WRDOCKET_ACCESS_TOKEN", "test-token")
         hook = WrikeHook("test-token")
 
         mock_resp = MagicMock()
@@ -39,7 +39,7 @@ class TestOnProjectSet:
         assert result == "TASK123"
 
     def test_creates_new_when_not_found(self, monkeypatch):
-        monkeypatch.setenv("WRIKE_ACCESS_TOKEN", "test-token")
+        monkeypatch.setenv("WRDOCKET_ACCESS_TOKEN", "test-token")
         hook = WrikeHook("test-token")
 
         # Search returns empty
@@ -62,7 +62,7 @@ class TestOnProjectSet:
 
 class TestOnBookmark:
     def test_posts_comment(self, monkeypatch):
-        monkeypatch.setenv("WRIKE_ACCESS_TOKEN", "test-token")
+        monkeypatch.setenv("WRDOCKET_ACCESS_TOKEN", "test-token")
         hook = WrikeHook("test-token")
 
         mock_resp = MagicMock()
@@ -80,7 +80,7 @@ class TestOnBookmark:
 
 class TestOnComplete:
     def test_updates_status(self, monkeypatch):
-        monkeypatch.setenv("WRIKE_ACCESS_TOKEN", "test-token")
+        monkeypatch.setenv("WRDOCKET_ACCESS_TOKEN", "test-token")
         hook = WrikeHook("test-token")
 
         mock_resp = MagicMock()

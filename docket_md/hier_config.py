@@ -1,10 +1,10 @@
-"""Hierarchical config resolution for ike.md.
+"""Hierarchical config resolution for docket.md.
 
-Settings live in ~/.config/ike/ as a folder tree that mirrors the project
+Settings live in ~/.config/docket/ as a folder tree that mirrors the project
 hierarchy: global → org → repo → project. Each level has an optional
 settings.json. Resolution merges top-down; child overrides parent.
 
-    ~/.config/ike/
+    ~/.config/docket/
       settings.json                          # global defaults
       orgs/
         aic-holdings/
@@ -24,7 +24,7 @@ import subprocess
 from typing import Any
 
 
-IKE_CONFIG_ROOT = os.path.expanduser("~/.config/ike")
+DOCKET_CONFIG_ROOT = os.path.expanduser("~/.config/docket")
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +137,7 @@ def write_settings(settings_path: str, data: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _settings_path(*parts: str) -> str:
-    return os.path.join(IKE_CONFIG_ROOT, *parts, "settings.json")
+    return os.path.join(DOCKET_CONFIG_ROOT, *parts, "settings.json")
 
 
 def resolve_config_chain(
@@ -147,7 +147,7 @@ def resolve_config_chain(
     """Return the ordered list of (level_name, settings_path, settings_dict)
     from global down to project level.
 
-    *project_id* is the UUID from .ike/ike.json; pass it if already known.
+    *project_id* is the UUID from .docket/docket.json; pass it if already known.
     """
     chain: list[tuple[str, str, dict]] = []
 
@@ -242,7 +242,7 @@ def set_value(
             if cfg:
                 project_id = cfg.id
         if not project_id or not org or not repo:
-            raise ValueError("Cannot determine project-level config path. Ensure git remote and .ike/ike.json exist.")
+            raise ValueError("Cannot determine project-level config path. Ensure git remote and .docket/docket.json exist.")
         sp = _settings_path("orgs", org, "repos", repo, "projects", project_id)
     else:
         raise ValueError(f"Unknown level: {level}. Use global, org, repo, or project.")
@@ -275,9 +275,9 @@ def find_setting_origin(
 # ---------------------------------------------------------------------------
 
 def get_config_tree() -> dict:
-    """Walk ~/.config/ike/ and return a nested representation of all settings."""
+    """Walk ~/.config/docket/ and return a nested representation of all settings."""
     tree: dict = {}
-    root = IKE_CONFIG_ROOT
+    root = DOCKET_CONFIG_ROOT
     if not os.path.isdir(root):
         return tree
 
