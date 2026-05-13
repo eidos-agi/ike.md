@@ -31,6 +31,7 @@ DOCKET_CONFIG_ROOT = os.path.expanduser("~/.config/docket")
 # Deep merge
 # ---------------------------------------------------------------------------
 
+
 def deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge *override* into *base*. Child wins on conflicts."""
     result = dict(base)
@@ -45,6 +46,7 @@ def deep_merge(base: dict, override: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Git remote helpers
 # ---------------------------------------------------------------------------
+
 
 def _git_root(path: str) -> str | None:
     """Walk up from *path* looking for a .git/ directory."""
@@ -63,7 +65,9 @@ def _git_remote_url(git_root: str) -> str | None:
     try:
         result = subprocess.run(
             ["git", "-C", git_root, "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -109,6 +113,7 @@ def detect_org_repo(project_path: str) -> tuple[str | None, str | None]:
 # Settings I/O
 # ---------------------------------------------------------------------------
 
+
 def _ensure_dir(path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -135,6 +140,7 @@ def write_settings(settings_path: str, data: dict) -> None:
 # ---------------------------------------------------------------------------
 # Config chain resolution
 # ---------------------------------------------------------------------------
+
 
 def _settings_path(*parts: str) -> str:
     return os.path.join(DOCKET_CONFIG_ROOT, *parts, "settings.json")
@@ -167,6 +173,7 @@ def resolve_config_chain(
     # 3. Project (by UUID)
     if not project_id:
         from .config import load_config
+
         cfg = load_config(project_path)
         if cfg:
             project_id = cfg.id
@@ -193,6 +200,7 @@ def resolved_settings(
 # ---------------------------------------------------------------------------
 # Set / get helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_dotted_key(key: str) -> list[str]:
     """Split 'wrike.enabled' into ['wrike', 'enabled']."""
@@ -229,7 +237,9 @@ def set_value(
         sp = _settings_path()
     elif level == "org":
         if not org:
-            raise ValueError("Cannot determine org from git remote. Set it manually or add a git remote.")
+            raise ValueError(
+                "Cannot determine org from git remote. Set it manually or add a git remote."
+            )
         sp = _settings_path("orgs", org)
     elif level == "repo":
         if not org or not repo:
@@ -238,11 +248,14 @@ def set_value(
     elif level == "project":
         if not project_id:
             from .config import load_config
+
             cfg = load_config(project_path)
             if cfg:
                 project_id = cfg.id
         if not project_id or not org or not repo:
-            raise ValueError("Cannot determine project-level config path. Ensure git remote and .docket/docket.json exist.")
+            raise ValueError(
+                "Cannot determine project-level config path. Ensure git remote and .docket/docket.json exist."
+            )
         sp = _settings_path("orgs", org, "repos", repo, "projects", project_id)
     else:
         raise ValueError(f"Unknown level: {level}. Use global, org, repo, or project.")
@@ -273,6 +286,7 @@ def find_setting_origin(
 # ---------------------------------------------------------------------------
 # Tree inspection
 # ---------------------------------------------------------------------------
+
 
 def get_config_tree() -> dict:
     """Walk ~/.config/docket/ and return a nested representation of all settings."""
@@ -316,9 +330,13 @@ def get_config_tree() -> dict:
                         proj_path = os.path.join(projects_dir, proj_id)
                         if not os.path.isdir(proj_path):
                             continue
-                        proj_settings = read_settings(os.path.join(proj_path, "settings.json"))
+                        proj_settings = read_settings(
+                            os.path.join(proj_path, "settings.json")
+                        )
                         if proj_settings:
-                            repo_entry.setdefault("projects", {})[proj_id] = proj_settings
+                            repo_entry.setdefault("projects", {})[proj_id] = (
+                                proj_settings
+                            )
 
                 if repo_entry:
                     org_entry.setdefault("repos", {})[repo_name] = repo_entry

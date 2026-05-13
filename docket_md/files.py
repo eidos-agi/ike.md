@@ -4,7 +4,7 @@ import json
 import os
 import re
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,6 +16,7 @@ from .security import safe_path
 
 # ── Types ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ParsedFile:
     frontmatter: dict[str, Any]
@@ -25,6 +26,7 @@ class ParsedFile:
 
 # ── YAML formatting to match gray-matter ──────────────────────────────────────
 
+
 class _GrayMatterDumper(yaml.SafeDumper):
     """Custom YAML dumper that matches gray-matter (js-yaml) output.
 
@@ -33,6 +35,7 @@ class _GrayMatterDumper(yaml.SafeDumper):
     - List items are indented 2 spaces under their key (default_flow_style=False
       + best_width handling doesn't do this, we need indent+offset config)
     """
+
     pass
 
 
@@ -48,6 +51,7 @@ _GrayMatterDumper.add_representer(str, _str_representer)
 
 # ── Read / Write ──────────────────────────────────────────────────────────────
 
+
 def read_markdown(file_path: str) -> ParsedFile:
     with open(file_path) as f:
         raw = f.read()
@@ -56,7 +60,7 @@ def read_markdown(file_path: str) -> ParsedFile:
     if raw.startswith("---\n"):
         end = raw.index("\n---\n", 4)
         fm_str = raw[4:end]
-        content = raw[end + 5:].strip()
+        content = raw[end + 5 :].strip()
         frontmatter = yaml.safe_load(fm_str) or {}
         # Convert date objects back to strings (yaml.safe_load parses dates)
         for k, v in frontmatter.items():
@@ -76,8 +80,11 @@ def write_markdown(file_path: str, frontmatter: dict[str, Any], content: str) ->
     fm = {k: v for k, v in frontmatter.items() if v is not None}
 
     fm_str = yaml.dump(
-        fm, Dumper=_GrayMatterDumper,
-        default_flow_style=False, sort_keys=False, allow_unicode=True,
+        fm,
+        Dumper=_GrayMatterDumper,
+        default_flow_style=False,
+        sort_keys=False,
+        allow_unicode=True,
         indent=2,  # base indent
     )
     # gray-matter (js-yaml) indents list items under their key with 2 spaces.
@@ -85,14 +92,11 @@ def write_markdown(file_path: str, frontmatter: dict[str, Any], content: str) ->
     # that follow a key line.
     lines = fm_str.split("\n")
     fixed = []
-    in_list = False
     for line in lines:
         if line.startswith("- "):
             # This is a list item at root level — indent it
             fixed.append("  " + line)
-            in_list = True
         else:
-            in_list = False
             fixed.append(line)
     fm_str = "\n".join(fixed)
 
@@ -109,6 +113,7 @@ def write_markdown(file_path: str, frontmatter: dict[str, Any], content: str) ->
 
 
 # ── ID generation ─────────────────────────────────────────────────────────────
+
 
 def _next_id(prefix: str, existing: list[str]) -> str:
     max_n = 0
@@ -128,6 +133,7 @@ def _slugify(title: str, max_len: int = 50) -> str:
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
+
 
 def _task_dir(project_root: str, completed: bool = False) -> str:
     subdir = DIRECTORIES["COMPLETED"] if completed else DIRECTORIES["TASKS"]
@@ -166,7 +172,9 @@ def list_all_tasks(project_root: str) -> list[ParsedFile]:
 
 
 def next_task_id(project_root: str) -> str:
-    existing = [t.frontmatter["id"] for t in list_tasks(project_root, include_completed=True)]
+    existing = [
+        t.frontmatter["id"] for t in list_tasks(project_root, include_completed=True)
+    ]
     # Also check archive
     archive_dir = safe_path(project_root, DOCKET_DIR, DIRECTORIES["ARCHIVE"])
     if os.path.exists(archive_dir):
@@ -203,6 +211,7 @@ def find_task_file(project_root: str, id: str) -> str | None:
 
 # ── Milestones ────────────────────────────────────────────────────────────────
 
+
 def _milestone_dir(project_root: str) -> str:
     return safe_path(project_root, DOCKET_DIR, DIRECTORIES["MILESTONES"])
 
@@ -225,7 +234,9 @@ def next_milestone_id(project_root: str) -> str:
 
 def milestone_path(project_root: str, id: str, title: str) -> str:
     slug = _slugify(title)
-    return safe_path(project_root, DOCKET_DIR, DIRECTORIES["MILESTONES"], f"{id} - {slug}.md")
+    return safe_path(
+        project_root, DOCKET_DIR, DIRECTORIES["MILESTONES"], f"{id} - {slug}.md"
+    )
 
 
 def find_milestone_file(project_root: str, id: str) -> str | None:
@@ -239,6 +250,7 @@ def find_milestone_file(project_root: str, id: str) -> str | None:
 
 
 # ── Documents ─────────────────────────────────────────────────────────────────
+
 
 def _document_dir(project_root: str) -> str:
     return safe_path(project_root, DOCKET_DIR, DIRECTORIES["DOCUMENTS"])
@@ -262,7 +274,9 @@ def next_document_id(project_root: str) -> str:
 
 def document_path(project_root: str, id: str, title: str) -> str:
     slug = _slugify(title)
-    return safe_path(project_root, DOCKET_DIR, DIRECTORIES["DOCUMENTS"], f"{id} - {slug}.md")
+    return safe_path(
+        project_root, DOCKET_DIR, DIRECTORIES["DOCUMENTS"], f"{id} - {slug}.md"
+    )
 
 
 def find_document_file(project_root: str, id: str) -> str | None:
@@ -277,6 +291,7 @@ def find_document_file(project_root: str, id: str) -> str | None:
 
 # ── Graph ────────────────────────────────────────────────────────────────────
 
+
 def _graph_dir(project_root: str) -> str:
     return safe_path(project_root, DOCKET_DIR, DIRECTORIES["GRAPH"])
 
@@ -288,7 +303,12 @@ def _slugify_node_id(node_id: str) -> str:
 
 
 def graph_node_path(project_root: str, node_id: str) -> str:
-    return safe_path(project_root, DOCKET_DIR, DIRECTORIES["GRAPH"], f"{_slugify_node_id(node_id)}.yaml")
+    return safe_path(
+        project_root,
+        DOCKET_DIR,
+        DIRECTORIES["GRAPH"],
+        f"{_slugify_node_id(node_id)}.yaml",
+    )
 
 
 def read_graph_node(file_path: str) -> dict[str, Any]:
@@ -308,8 +328,11 @@ def write_graph_node(file_path: str, data: dict[str, Any]) -> None:
     clean = {k: v for k, v in data.items() if v is not None}
     with open(file_path, "w") as f:
         yaml.dump(
-            clean, f,
-            default_flow_style=False, sort_keys=False, allow_unicode=True,
+            clean,
+            f,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
             indent=2,
         )
 
@@ -350,6 +373,7 @@ def find_graph_node_file(project_root: str, node_id: str) -> str | None:
 
 # ── Plans ─────────────────────────────────────────────────────────────────────
 
+
 def _plan_dir(project_root: str) -> str:
     d = safe_path(project_root, DOCKET_DIR, DIRECTORIES["PLANS"])
     os.makedirs(d, exist_ok=True)
@@ -374,7 +398,9 @@ def next_plan_id(project_root: str) -> str:
 
 def plan_path(project_root: str, id: str, title: str) -> str:
     slug = _slugify(title)
-    return safe_path(project_root, DOCKET_DIR, DIRECTORIES["PLANS"], f"{id} - {slug}.md")
+    return safe_path(
+        project_root, DOCKET_DIR, DIRECTORIES["PLANS"], f"{id} - {slug}.md"
+    )
 
 
 def find_plan_file(project_root: str, id: str) -> str | None:
@@ -388,6 +414,7 @@ def find_plan_file(project_root: str, id: str) -> str | None:
 
 
 # ── Sessions ─────────────────────────────────────────────────────────────────
+
 
 def load_sessions(project_root: str) -> dict:
     """Read .docket/sessions.json. Return {"sessions": []} if missing."""
@@ -415,22 +442,26 @@ def save_sessions(project_root: str, data: dict) -> None:
         raise
 
 
-def add_session(project_root: str, session_id: str, jsonl_path: str, project_id: str) -> bool:
+def add_session(
+    project_root: str, session_id: str, jsonl_path: str, project_id: str
+) -> bool:
     """Add new session entry. Returns False if already exists (dedup by session_id)."""
     data = load_sessions(project_root)
     for s in data["sessions"]:
         if s["id"] == session_id:
             return False
     now = datetime.now(timezone.utc).isoformat()
-    data["sessions"].append({
-        "id": session_id,
-        "first_seen": now,
-        "last_activity": now,
-        "status": "active",
-        "jsonl": jsonl_path,
-        "project_id": project_id,
-        "events": [],
-    })
+    data["sessions"].append(
+        {
+            "id": session_id,
+            "first_seen": now,
+            "last_activity": now,
+            "status": "active",
+            "jsonl": jsonl_path,
+            "project_id": project_id,
+            "events": [],
+        }
+    )
     save_sessions(project_root, data)
     return True
 

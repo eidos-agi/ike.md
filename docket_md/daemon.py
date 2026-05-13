@@ -30,6 +30,7 @@ logger = logging.getLogger("docket-daemon")
 
 try:
     from .files import add_session, add_session_event, load_sessions
+
     HAS_SESSION_HELPERS = True
 except ImportError:
     HAS_SESSION_HELPERS = False
@@ -69,6 +70,7 @@ def save_state(state: dict) -> None:
 
 # ── Detection ────────────────────────────────────────────────────────────────
 
+
 def _is_plan_approval(obj: dict) -> dict | None:
     """Check if a JSONL entry is a plan approval event.
 
@@ -103,7 +105,10 @@ def _is_plan_approval(obj: dict) -> dict | None:
                 # content might be a list of dicts with text
                 if isinstance(text, list):
                     for sub in text:
-                        if isinstance(sub, dict) and "approved your plan" in sub.get("text", "").lower():
+                        if (
+                            isinstance(sub, dict)
+                            and "approved your plan" in sub.get("text", "").lower()
+                        ):
                             approved = True
                             break
 
@@ -155,7 +160,9 @@ def _ingest_plan(project_root: str, approval: dict) -> str | None:
     plan_id = _next_id("PLAN", existing_ids)
 
     slug = _slugify(title)
-    file_path = safe_path(project_root, DOCKET_DIR, DIRECTORIES["PLANS"], f"{plan_id} - {slug}.md")
+    file_path = safe_path(
+        project_root, DOCKET_DIR, DIRECTORIES["PLANS"], f"{plan_id} - {slug}.md"
+    )
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     frontmatter = {
@@ -187,6 +194,7 @@ def _ingest_plan(project_root: str, approval: dict) -> str | None:
 
 # ── Install hook ─────────────────────────────────────────────────────────────
 
+
 def install() -> None:
     """Install the SessionStart hook into ~/.claude/settings.json."""
     settings_dir = os.path.dirname(SETTINGS_FILE)
@@ -202,7 +210,7 @@ def install() -> None:
         settings["hooks"] = {}
 
     hook_command = (
-        "jq -c '{type:\"watch_session\",session_id:.session_id,"
+        'jq -c \'{type:"watch_session",session_id:.session_id,'
         "jsonl:.transcript_path,cwd:.cwd}' >> ~/.config/docket/daemon-queue.jsonl"
     )
 
@@ -223,10 +231,12 @@ def install() -> None:
                 return
 
     # Add the docket hook entry
-    session_start_hooks.append({
-        "matcher": "",
-        "hooks": [docket_hook],
-    })
+    session_start_hooks.append(
+        {
+            "matcher": "",
+            "hooks": [docket_hook],
+        }
+    )
     settings["hooks"]["SessionStart"] = session_start_hooks
 
     # Atomic write
@@ -240,6 +250,7 @@ def install() -> None:
 
 
 # ── Queue processing ─────────────────────────────────────────────────────────
+
 
 def process_queue(state: dict) -> dict:
     """Read QUEUE_FILE, register new sessions, add to watch list."""
@@ -328,6 +339,7 @@ def process_queue(state: dict) -> dict:
 
 
 # ── File watching ────────────────────────────────────────────────────────────
+
 
 def watch_files(state: dict) -> dict:
     """Check watched JSONL files for new plan approvals."""
@@ -419,6 +431,7 @@ def watch_files(state: dict) -> dict:
 
 # ── Signal handling ──────────────────────────────────────────────────────────
 
+
 def _handle_signal(signum: int, frame: object) -> None:
     global _shutdown
     logger.info("Received signal %d, shutting down", signum)
@@ -426,6 +439,7 @@ def _handle_signal(signum: int, frame: object) -> None:
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     """Entry point: setup logging, PID file, signal handlers, polling loop."""
@@ -448,7 +462,9 @@ def main() -> None:
                     pass
             print(f"Watches: {len(watches)}")
             for jsonl, info in watches.items():
-                print(f"  {info['session_id']}  {info['project_root']}  offset={info['offset']}")
+                print(
+                    f"  {info['session_id']}  {info['project_root']}  offset={info['offset']}"
+                )
             print(f"Queue depth: {queue_depth}")
             print(f"Ingested: {len(state.get('ingested', []))}")
             sys.exit(0)
@@ -463,7 +479,9 @@ def main() -> None:
 
     # Also log to stderr for interactive use
     stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    stderr_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    )
     logger.addHandler(stderr_handler)
 
     # PID file

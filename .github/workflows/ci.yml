@@ -21,8 +21,8 @@ jobs:
       - name: Lint
         run: |
           pip install ruff
-          ruff check ike_md/
-          ruff format --check ike_md/
+          ruff check docket_md/
+          ruff format --check docket_md/
 
   test:
     runs-on: ubuntu-latest
@@ -36,10 +36,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: pip install -e ".[dev]"
-      - name: Run fixture verification
-        run: python refactor/verify-fixtures.py || true
       - name: Run tests
-        run: pytest tests/ -v || echo "No pytest tests yet"
+        run: pytest tests/ -v
 
   build-verify:
     runs-on: ubuntu-latest
@@ -59,4 +57,4 @@ jobs:
         run: |
           python -m venv /tmp/test-venv
           /tmp/test-venv/bin/pip install dist/*.whl
-          /tmp/test-venv/bin/python -c "import ike_md; print(ike_md.__version__)"
+          /tmp/test-venv/bin/python -c "import docket_md"

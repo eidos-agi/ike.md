@@ -24,9 +24,12 @@ class WrikeHook:
         self._token = access_token
         try:
             import httpx
+
             self._http = httpx.Client(timeout=15)
         except ImportError:
-            raise ImportError("httpx is required for Wrdocket hook. Install with: pip install httpx")
+            raise ImportError(
+                "httpx is required for Wrdocket hook. Install with: pip install httpx"
+            )
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -35,17 +38,23 @@ class WrikeHook:
         }
 
     def _get(self, path: str, params: dict | None = None) -> Any:
-        resp = self._http.get(f"{WRDOCKET_API}{path}", headers=self._headers(), params=params)
+        resp = self._http.get(
+            f"{WRDOCKET_API}{path}", headers=self._headers(), params=params
+        )
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, path: str, data: dict | None = None) -> Any:
-        resp = self._http.post(f"{WRDOCKET_API}{path}", headers=self._headers(), json=data)
+        resp = self._http.post(
+            f"{WRDOCKET_API}{path}", headers=self._headers(), json=data
+        )
         resp.raise_for_status()
         return resp.json()
 
     def _put(self, path: str, data: dict | None = None) -> Any:
-        resp = self._http.put(f"{WRDOCKET_API}{path}", headers=self._headers(), json=data)
+        resp = self._http.put(
+            f"{WRDOCKET_API}{path}", headers=self._headers(), json=data
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -68,7 +77,9 @@ class WrikeHook:
             tasks = result.get("data", [])
             for t in tasks:
                 if t.get("title", "").lower() == project_name.lower():
-                    logger.info(f"Wrike: found existing task {t['id']} for '{project_name}'")
+                    logger.info(
+                        f"Wrike: found existing task {t['id']} for '{project_name}'"
+                    )
                     return t["id"]
         except Exception as e:
             logger.warning(f"Wrike search failed: {e}")
@@ -79,7 +90,7 @@ class WrikeHook:
                 f"/folders/{folder_id}/tasks",
                 data={
                     "title": f"[docket] {project_name}",
-                    "description": f"Tracked by docket.md. Source: local project.",
+                    "description": "Tracked by docket.md. Source: local project.",
                     "status": "Active",
                 },
             )
@@ -126,7 +137,9 @@ def get_hook(settings: dict) -> WrikeHook | None:
 
     token = os.getenv("WRDOCKET_ACCESS_TOKEN")
     if not token:
-        logger.debug("wrike.enabled=true but WRDOCKET_ACCESS_TOKEN not set — skipping hook")
+        logger.debug(
+            "wrike.enabled=true but WRDOCKET_ACCESS_TOKEN not set — skipping hook"
+        )
         return None
 
     try:

@@ -39,6 +39,13 @@ from .files import (
 )
 from .security import safe_path
 from .config import DOCKET_DIR, DIRECTORIES
+from .hier_config import (
+    resolve_config_chain,
+    resolved_settings,
+    set_value as _hc_set_value,
+    find_setting_origin,
+    get_config_tree,
+)
 
 INSTRUCTIONS = """docket.md is the execution forge — tasks, milestones, documents, Definition of Done. This is where work gets done.
 
@@ -127,7 +134,9 @@ def project_list() -> str:
     """List all projects registered in this session."""
     projects = list_registered()
     if not projects:
-        return "No projects registered this session. Call project_set with a project path."
+        return (
+            "No projects registered this session. Call project_set with a project path."
+        )
     return "\n".join(f"- `{p['id']}` → {p['path']}" for p in projects)
 
 
@@ -246,7 +255,9 @@ def task_list(
         else:
             badge = "○"
         pri = f" [{fm['priority']}]" if fm.get("priority") else ""
-        blocked = f" — BLOCKED: {fm['blocked_reason']}" if fm.get("blocked_reason") else ""
+        blocked = (
+            f" — BLOCKED: {fm['blocked_reason']}" if fm.get("blocked_reason") else ""
+        )
         lines.append(f"{badge} **{fm['id']}**{pri} — {fm['title']}{blocked}")
     return "\n".join(lines)
 
@@ -330,7 +341,11 @@ def task_complete(project_id: str, task_id: str, notes: str | None = None) -> st
         return f"Task {task_id} not found."
     task = read_markdown(fp)
     fm = {**task.frontmatter, "status": "Done", "updated": _today()}
-    content = f"{task.content}\n\n**Completion notes:** {notes}".strip() if notes else task.content
+    content = (
+        f"{task.content}\n\n**Completion notes:** {notes}".strip()
+        if notes
+        else task.content
+    )
     dest = task_path(project_root, fm["id"], fm["title"], completed=True)
     write_markdown(dest, fm, content)
     os.unlink(fp)
@@ -346,8 +361,12 @@ def task_archive(project_id: str, task_id: str, reason: str | None = None) -> st
         return f"Task {task_id} not found."
     task = read_markdown(fp)
     fm = {**task.frontmatter, "updated": _today()}
-    content = f"{task.content}\n\n**Archived:** {reason}".strip() if reason else task.content
-    archive_path = safe_path(project_root, DOCKET_DIR, DIRECTORIES["ARCHIVE"], os.path.basename(fp))
+    content = (
+        f"{task.content}\n\n**Archived:** {reason}".strip() if reason else task.content
+    )
+    archive_path = safe_path(
+        project_root, DOCKET_DIR, DIRECTORIES["ARCHIVE"], os.path.basename(fp)
+    )
     write_markdown(archive_path, fm, content)
     os.unlink(fp)
     return f"Archived **{fm['id']}** — {fm['title']}"
@@ -357,10 +376,15 @@ def task_archive(project_id: str, task_id: str, reason: str | None = None) -> st
 def task_search(project_id: str, query: str, include_completed: bool = False) -> str:
     """Search tasks by keyword in title and description."""
     project_root = resolve_project(project_id)
-    tasks = list_all_tasks(project_root) if include_completed else list_tasks(project_root, False)
+    tasks = (
+        list_all_tasks(project_root)
+        if include_completed
+        else list_tasks(project_root, False)
+    )
     q = query.lower()
     matches = [
-        t for t in tasks
+        t
+        for t in tasks
         if q in t.frontmatter["title"].lower() or q in t.content.lower()
     ]
     if not matches:
@@ -375,7 +399,9 @@ def task_search(project_id: str, query: str, include_completed: bool = False) ->
 
 
 @mcp.tool()
-def milestone_create(project_id: str, title: str, description: str = "", due: str | None = None) -> str:
+def milestone_create(
+    project_id: str, title: str, description: str = "", due: str | None = None
+) -> str:
     """Create a new milestone."""
     project_root = resolve_project(project_id)
     id = next_milestone_id(project_root)
@@ -425,7 +451,9 @@ def milestone_view(project_id: str, milestone_id: str) -> str:
 
 
 @mcp.tool()
-def milestone_close(project_id: str, milestone_id: str, notes: str | None = None) -> str:
+def milestone_close(
+    project_id: str, milestone_id: str, notes: str | None = None
+) -> str:
     """Close a milestone (mark it complete)."""
     project_root = resolve_project(project_id)
     fp = find_milestone_file(project_root, milestone_id)
@@ -442,7 +470,9 @@ def milestone_close(project_id: str, milestone_id: str, notes: str | None = None
 
 
 @mcp.tool()
-def document_create(project_id: str, title: str, content: str = "", tags: list[str] | None = None) -> str:
+def document_create(
+    project_id: str, title: str, content: str = "", tags: list[str] | None = None
+) -> str:
     """Create a project document."""
     project_root = resolve_project(project_id)
     id = next_document_id(project_root)
@@ -460,7 +490,9 @@ def document_list(project_id: str) -> str:
     docs = list_documents(project_root)
     if not docs:
         return "No documents."
-    return "\n".join(f"**{d.frontmatter['id']}** — {d.frontmatter['title']}" for d in docs)
+    return "\n".join(
+        f"**{d.frontmatter['id']}** — {d.frontmatter['title']}" for d in docs
+    )
 
 
 @mcp.tool()
@@ -529,7 +561,9 @@ def graph_create_node(
     project_root = resolve_project(project_id)
     fp = graph_node_path(project_root, node_id)
     if os.path.exists(fp):
-        return f"Node `{node_id}` already exists. Use graph_add_edge to add connections."
+        return (
+            f"Node `{node_id}` already exists. Use graph_add_edge to add connections."
+        )
 
     data: dict = {
         "id": node_id,
@@ -661,7 +695,9 @@ def graph_list_nodes(
     for n in nodes:
         edge_count = len(n.get("edges", []))
         edges_str = f" ({edge_count} edges)" if edge_count else ""
-        lines.append(f"• `{n['id']}` [{n.get('type', '?')}] — {n.get('title', '(untitled)')}{edges_str}")
+        lines.append(
+            f"• `{n['id']}` [{n.get('type', '?')}] — {n.get('title', '(untitled)')}{edges_str}"
+        )
 
     return f"**{len(lines)} nodes:**\n" + "\n".join(lines)
 
@@ -718,10 +754,15 @@ def graph_traverse(
     deadline = attrs.get("deadline", "")
     header = f"## {root.get('title', node_id)}"
     if status or deadline:
-        meta = " | ".join(filter(None, [
-            f"Status: {status}" if status else "",
-            f"Deadline: {deadline}" if deadline else "",
-        ]))
+        meta = " | ".join(
+            filter(
+                None,
+                [
+                    f"Status: {status}" if status else "",
+                    f"Deadline: {deadline}" if deadline else "",
+                ],
+            )
+        )
         header += f"\n{meta}"
     lines.append(header)
 
@@ -737,13 +778,24 @@ def graph_traverse(
                 tattrs = target.get("attributes", {})
                 detail_parts = []
                 # Pick the most useful attributes to show inline
-                for key in ("role", "email", "status", "date", "consequence", "path",
-                            "aic_mail_query", "wrike_id", "hard"):
+                for key in (
+                    "role",
+                    "email",
+                    "status",
+                    "date",
+                    "consequence",
+                    "path",
+                    "aic_mail_query",
+                    "wrike_id",
+                    "hard",
+                ):
                     if key in tattrs:
                         detail_parts.append(f"{key}: {tattrs[key]}")
                 detail = " | ".join(detail_parts) if detail_parts else ""
                 detail_str = f" ({detail})" if detail else ""
-                lines.append(f"  —[{edge_type}]→ **{target.get('title', target_id)}**{detail_str}")
+                lines.append(
+                    f"  —[{edge_type}]→ **{target.get('title', target_id)}**{detail_str}"
+                )
             else:
                 lines.append(f"  —[{edge_type}]→ `{target_id}` (not found in graph)")
 
@@ -754,16 +806,16 @@ def graph_traverse(
             continue
         na = node.get("attributes", {})
         if na.get("aic_mail_query"):
-            exec_refs.append(f"  aic-mail: mail_search(\"{na['aic_mail_query']}\")")
+            exec_refs.append(f'  aic-mail: mail_search("{na["aic_mail_query"]}")')
             if na.get("outbound_id"):
                 exec_refs.append(f"  aic-mail: mail_read({na['outbound_id']})")
         if na.get("wrike_id"):
-            exec_refs.append(f"  wrike: get_task(\"{na['wrike_id']}\")")
+            exec_refs.append(f'  wrike: get_task("{na["wrike_id"]}")')
         if na.get("path"):
             exec_refs.append(f"  file: {na['path']}")
 
     if exec_refs:
-        lines.append(f"\n**EXECUTABLE REFERENCES:**")
+        lines.append("\n**EXECUTABLE REFERENCES:**")
         lines.extend(exec_refs)
 
     return "\n".join(lines)
@@ -846,7 +898,13 @@ def plan_list(project_id: str, status: str | None = None) -> str:
     lines = []
     for p in plans:
         fm = p.frontmatter
-        badge = {"draft": "○", "approved": "✓", "in-progress": "▶", "completed": "✓", "abandoned": "✗"}.get(fm["status"], "?")
+        badge = {
+            "draft": "○",
+            "approved": "✓",
+            "in-progress": "▶",
+            "completed": "✓",
+            "abandoned": "✗",
+        }.get(fm["status"], "?")
         ms = f" [{fm['milestone']}]" if fm.get("milestone") else ""
         lines.append(f"{badge} **{fm['id']}** — {fm['title']}{ms} ({fm['status']})")
     return "\n".join(lines)
@@ -926,14 +984,6 @@ def plan_verify(project_id: str, plan_id: str) -> str:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-from .hier_config import (
-    resolve_config_chain,
-    resolved_settings,
-    set_value as _hc_set_value,
-    find_setting_origin,
-    get_config_tree,
-)
-
 
 @mcp.tool()
 def config_get(project_id: str | None = None, path: str | None = None) -> str:
@@ -955,14 +1005,17 @@ def config_get(project_id: str | None = None, path: str | None = None) -> str:
         lines.append(f"**{level_name}** `{settings_path}`")
         if settings:
             import json
+
             lines.append(f"```json\n{json.dumps(settings, indent=2)}\n```")
         else:
             lines.append("_(empty)_")
         from .hier_config import deep_merge
+
         merged = deep_merge(merged, settings)
 
     lines.append("\n**Resolved (merged):**")
     import json
+
     lines.append(f"```json\n{json.dumps(merged, indent=2)}\n```")
     return "\n".join(lines)
 
@@ -988,6 +1041,7 @@ def config_set(
 
     # Parse value as JSON if possible
     import json
+
     try:
         parsed = json.loads(value)
     except (json.JSONDecodeError, TypeError):
@@ -1012,11 +1066,14 @@ def config_tree() -> str:
     if not tree:
         return "No config tree found at ~/.config/docket/"
     import json
+
     return f"## Config Tree\n\n```json\n{json.dumps(tree, indent=2)}\n```"
 
 
 @mcp.tool()
-def config_where(key: str, project_id: str | None = None, path: str | None = None) -> str:
+def config_where(
+    key: str, project_id: str | None = None, path: str | None = None
+) -> str:
     """Show which level set a specific config key. Key supports dot notation."""
     if project_id:
         path = resolve_project(project_id)
@@ -1073,9 +1130,12 @@ def bookmark(project_id: str, note: str) -> str:
     if wrike_cfg.get("enabled") and wrike_cfg.get("task_id"):
         try:
             from .hooks.wrike_hook import get_hook
+
             hook = get_hook(settings)
             if hook:
-                hook.on_bookmark(wrike_cfg["task_id"], f"[ike checkpoint] {project_name}\n\n{note}")
+                hook.on_bookmark(
+                    wrike_cfg["task_id"], f"[ike checkpoint] {project_name}\n\n{note}"
+                )
                 wrike_result = "\nWrike comment posted."
         except Exception as e:
             wrike_result = f"\nWrdocket hook failed: {e}"

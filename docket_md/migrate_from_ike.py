@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import shutil
 import sys
@@ -58,7 +57,6 @@ def plan_for_project(project_root: Path) -> Plan:
 
     # Config JSON
     ike_json = ike_dir / "ike.json" if ike_dir.is_dir() else None
-    docket_json = docket_dir / "docket.json"
     if ike_json and ike_json.is_file():
         plan.add(f"rename {ike_dir.name}/ike.json -> {docket_dir.name}/docket.json")
         try:
@@ -68,7 +66,9 @@ def plan_for_project(project_root: Path) -> Plan:
             data = None
         if isinstance(data, dict):
             if "ike_path" in data:
-                plan.add(f"  set docket_path={data['ike_path'].replace('.ike', '.docket')!r} (was ike_path)")
+                plan.add(
+                    f"  set docket_path={data['ike_path'].replace('.ike', '.docket')!r} (was ike_path)"
+                )
             if data.get("project") == "ike.md":
                 plan.add("  set project='docket.md' (was 'ike.md')")
 
@@ -78,7 +78,9 @@ def plan_for_project(project_root: Path) -> Plan:
         content = settings.read_text()
         _, n = _safe_sub(content, r"mcp__ike__", "mcp__docket__")
         if n:
-            plan.add(f"edit .claude/settings.local.json: {n} mcp__ike__ -> mcp__docket__")
+            plan.add(
+                f"edit .claude/settings.local.json: {n} mcp__ike__ -> mcp__docket__"
+            )
 
     # .mcp.json server name + commands
     mcp_json = project_root / ".mcp.json"
@@ -217,7 +219,9 @@ def main() -> int:
         print(f"migrated: {plan.project_root}")
 
     print(f"\nDone. Migrated {len(nonempty)} project(s).")
-    print("Restart any active Claude Code sessions so they pick up the renamed MCP server.")
+    print(
+        "Restart any active Claude Code sessions so they pick up the renamed MCP server."
+    )
     return 0
 
 
