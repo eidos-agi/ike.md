@@ -1,10 +1,4 @@
-# Node (TypeScript original)
-node_modules/
-dist/
-*.js.map
-*.tsbuildinfo
-
-# Python (new primary)
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
