@@ -36,6 +36,7 @@ daemon = [
 [project.scripts]
 docket-md = "docket_md.server:main"
 docket-daemon = "docket_md.daemon:main"
+docket-migrate = "docket_md.migrate_from_ike:main"
 
 [project.entry-points."mcp"]
 docket-md = "docket_md.server:mcp"
