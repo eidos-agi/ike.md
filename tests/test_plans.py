@@ -12,7 +12,7 @@ from docket_md.files import (
     read_markdown,
     write_markdown,
 )
-from docket_md.server import (
+from docket_md._logic.plan import (
     plan_create,
     plan_list,
     plan_view,

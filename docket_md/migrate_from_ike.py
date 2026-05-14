@@ -1,16 +1,24 @@
-"""docket-migrate — rename `ike-md` state to `docket-md` in any project.
+"""docket-migrate — bring a project to current docket-md state.
 
-Run inside a project directory (looks for `.ike/`) or pass `--root` to sweep
-a tree of repos. Dry-run by default; pass `--apply` to actually rewrite.
+Handles three transitions, idempotently, in one sweep:
 
-Renames performed per project:
-    .ike/                       -> .docket/
-    .ike/ike.json               -> .docket/docket.json
-        key `ike_path`          -> `docket_path` (value also updated)
-        field `project: ike.md` -> `project: docket.md`
-    .claude/settings.local.json: mcp__ike__ -> mcp__docket__
-    .mcp.json:                   ike-md / ike_md / ike-daemon refs,
-                                 server-name `"ike"` -> `"docket"`
+    v0.2.x (ike-md) -> v0.3.0 (docket-md):
+        .ike/ -> .docket/, ike.json -> docket.json (with field updates),
+        mcp__ike__ -> mcp__docket__ in allowlist,
+        .mcp.json server name + commands.
+
+    v0.3.0 (MCP-fat) -> v0.4.0 (CLI-first razor-thin MCP):
+        collapse ALL mcp__docket-md__* allowlist entries to a single
+        mcp__docket-md__help; ensure Bash(docket-md:*) is present.
+        (See ADR-006 in governor.md.)
+
+    Also note: the old allowlist prefix was `mcp__docket__` (single word
+    matching the FastMCP server name); v0.4.0's MCP server is named
+    `docket-md` so the prefix is `mcp__docket-md__`. Both legacy
+    prefixes (ike, docket) are collapsed in the same sweep.
+
+Run inside a project directory or pass --root to sweep a tree. Dry-run by
+default; pass --apply to actually rewrite.
 
 Files NEVER touched:
     - Anything containing 'wrike' (Wrike SaaS integration, different tool)
@@ -72,15 +80,39 @@ def plan_for_project(project_root: Path) -> Plan:
             if data.get("project") == "ike.md":
                 plan.add("  set project='docket.md' (was 'ike.md')")
 
-    # Claude settings allowlist
+    # Claude settings allowlist — three transitions are handled idempotently:
+    #   mcp__ike__*                  -> mcp__docket__*    (v0.3.0 server-prefix rename)
+    #   ALL mcp__(ike|docket|docket-md)__*  -> mcp__docket-md__help  (v0.4.0 collapse)
+    #   plus: ensure Bash(docket-md:*) is present (v0.4.0)
     settings = project_root / ".claude" / "settings.local.json"
     if settings.is_file():
-        content = settings.read_text()
-        _, n = _safe_sub(content, r"mcp__ike__", "mcp__docket__")
-        if n:
-            plan.add(
-                f"edit .claude/settings.local.json: {n} mcp__ike__ -> mcp__docket__"
+        try:
+            data = json.loads(settings.read_text())
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            allow = data.get("permissions", {}).get("allow", [])
+            legacy_entries = [
+                e
+                for e in allow
+                if isinstance(e, str)
+                and (
+                    e.startswith("mcp__ike__")
+                    or e.startswith("mcp__docket__")
+                    or e.startswith("mcp__docket-md__")
+                )
+            ]
+            already_help = any(e == "mcp__docket-md__help" for e in allow)
+            bash_pattern_present = any(
+                isinstance(e, str) and e.startswith("Bash(docket-md") for e in allow
             )
+            if legacy_entries and (not already_help or len(legacy_entries) > 1):
+                plan.add(
+                    f"collapse {len(legacy_entries)} mcp__(ike|docket|docket-md)__* allowlist entries → "
+                    "single mcp__docket-md__help (CLI-first; v0.4.0)"
+                )
+            if not bash_pattern_present:
+                plan.add("add Bash(docket-md:*) to allowlist (CLI-first)")
 
     # .mcp.json server name + commands
     mcp_json = project_root / ".mcp.json"
@@ -129,13 +161,39 @@ def apply_plan(plan: Plan) -> None:
             # Couldn't parse — preserve content by raw move
             shutil.move(str(ike_json), str(docket_json))
 
-    # 3. Claude settings allowlist
+    # 3. Claude settings allowlist (three transitions; see plan_for_project)
     settings = project_root / ".claude" / "settings.local.json"
     if settings.is_file():
-        content = settings.read_text()
-        new, _ = _safe_sub(content, r"mcp__ike__", "mcp__docket__")
-        if new != content:
-            settings.write_text(new)
+        try:
+            data = json.loads(settings.read_text())
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            allow = data.get("permissions", {}).get("allow", [])
+            new_allow = [
+                e
+                for e in allow
+                if not (
+                    isinstance(e, str)
+                    and (
+                        e.startswith("mcp__ike__")
+                        or e.startswith("mcp__docket__")
+                        or e.startswith("mcp__docket-md__")
+                    )
+                )
+            ]
+            changed = len(allow) != len(new_allow)
+            if not any(e == "mcp__docket-md__help" for e in new_allow):
+                new_allow.append("mcp__docket-md__help")
+                changed = True
+            if not any(
+                isinstance(e, str) and e.startswith("Bash(docket-md") for e in new_allow
+            ):
+                new_allow.append("Bash(docket-md:*)")
+                changed = True
+            if changed:
+                data.setdefault("permissions", {})["allow"] = new_allow
+                settings.write_text(json.dumps(data, indent=2))
 
     # 4. .mcp.json
     mcp_json = project_root / ".mcp.json"
@@ -151,14 +209,33 @@ def apply_plan(plan: Plan) -> None:
 
 
 def find_projects(root: Path) -> list[Path]:
-    """Find directories containing .ike/ under root (depth-limited)."""
+    """Find candidates: .ike/ projects, .docket/ projects, AND consumers
+    (cockpits) whose .claude/settings.local.json references docket-md.
+    """
     found = []
-    for path in root.rglob(".ike"):
-        if path.is_dir():
-            parent = path.parent
-            # Skip if .docket/ also exists — likely already migrated mirror
-            if (parent / ".docket").exists():
-                continue
+    seen: set[Path] = set()
+    for marker in (".ike", ".docket"):
+        for path in root.rglob(marker):
+            if path.is_dir():
+                parent = path.parent
+                if parent in seen:
+                    continue
+                seen.add(parent)
+                found.append(parent)
+    for settings in root.rglob(".claude/settings.local.json"):
+        parent = settings.parent.parent
+        if parent in seen:
+            continue
+        try:
+            content = settings.read_text()
+        except OSError:
+            continue
+        if (
+            "mcp__docket__" in content
+            or "mcp__docket-md__" in content
+            or "mcp__ike__" in content
+        ):
+            seen.add(parent)
             found.append(parent)
     return sorted(found)
 
@@ -192,8 +269,12 @@ def main() -> int:
         print(f"Found {len(projects)} project(s) with .ike/ under {args.root}.\n")
     else:
         cwd = Path.cwd()
-        if not (cwd / ".ike").is_dir():
-            print(f"No .ike/ in {cwd}. Nothing to migrate.")
+        if not (
+            (cwd / ".ike").is_dir()
+            or (cwd / ".docket").is_dir()
+            or (cwd / ".claude" / "settings.local.json").is_file()
+        ):
+            print(f"Nothing to migrate in {cwd}.")
             print("Use --root to sweep a directory tree.")
             return 0
         projects = [cwd]
