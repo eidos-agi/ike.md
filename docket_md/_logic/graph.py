@@ -198,36 +198,63 @@ def graph_traverse(
         header += f"\n{meta}"
     lines.append(header)
 
-    edges = root.get("edges", [])
-    if edges:
-        lines.append(f"\n**CONNECTED ({len(edges)}):**")
-        for edge in edges:
-            target_id = edge.get("target", "?")
-            edge_type = edge.get("type", "?")
-            target = visited.get(target_id)
-            if target:
-                tattrs = target.get("attributes", {})
-                detail_parts = []
-                for key in (
-                    "role",
-                    "email",
-                    "status",
-                    "date",
-                    "consequence",
-                    "path",
-                    "aic_mail_query",
-                    "wrike_id",
-                    "hard",
-                ):
-                    if key in tattrs:
-                        detail_parts.append(f"{key}: {tattrs[key]}")
-                detail = " | ".join(detail_parts) if detail_parts else ""
-                detail_str = f" ({detail})" if detail else ""
-                lines.append(
-                    f"  —[{edge_type}]→ **{target.get('title', target_id)}**{detail_str}"
-                )
-            else:
-                lines.append(f"  —[{edge_type}]→ `{target_id}` (not found in graph)")
+    def _format_edge(source_id: str, edge: dict, indent: str) -> None:
+        target_id = edge.get("target", "?")
+        edge_type = edge.get("type", "?")
+        target = visited.get(target_id)
+        if target:
+            tattrs = target.get("attributes", {})
+            detail_parts = []
+            for key in (
+                "role",
+                "email",
+                "status",
+                "date",
+                "consequence",
+                "path",
+                "aic_mail_query",
+                "wrike_id",
+                "hard",
+            ):
+                if key in tattrs:
+                    detail_parts.append(f"{key}: {tattrs[key]}")
+            detail = " | ".join(detail_parts) if detail_parts else ""
+            detail_str = f" ({detail})" if detail else ""
+            lines.append(
+                f"{indent}—[{edge_type}]→ **{target.get('title', target_id)}**{detail_str}"
+            )
+        else:
+            lines.append(f"{indent}—[{edge_type}]→ `{target_id}` (not found in graph)")
+
+    # BFS-printed subgraph. We re-walk to preserve insertion order and indent
+    # by depth so the agent can see chains, not just root's first-hop.
+    printed: set[str] = {node_id}
+    visit_frontier: list[tuple[str, int]] = [(node_id, 0)]
+    total_edges_shown = 0
+    while visit_frontier:
+        src_id, src_depth = visit_frontier.pop(0)
+        if src_depth >= depth:
+            continue
+        src_node = visited.get(src_id)
+        if not src_node:
+            continue
+        src_edges = src_node.get("edges", [])
+        if not src_edges:
+            continue
+        if src_id == node_id:
+            lines.append(f"\n**CONNECTED ({len(src_edges)}):**")
+        else:
+            lines.append(
+                f"\n**from `{src_id}` ({src_node.get('title', '?')}):**"
+            )
+        indent = "  " * (src_depth + 1)
+        for edge in src_edges:
+            _format_edge(src_id, edge, indent)
+            total_edges_shown += 1
+            target_id = edge.get("target", "")
+            if target_id and target_id not in printed and target_id in visited:
+                printed.add(target_id)
+                visit_frontier.append((target_id, src_depth + 1))
 
     exec_refs = []
     for nid, node in visited.items():
